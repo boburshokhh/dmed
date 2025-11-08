@@ -4,28 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DMED Documents - Создание документа</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <div class="container">
+    <div class="container-fluid px-0">
         {% include 'components/header.html' %}
 
-        <div class="form-container">
-            <form id="documentForm">
+        <div class="container my-4">
+            <form id="documentForm" class="bg-white rounded-4 shadow-lg p-4 p-md-5">
                 {% include 'components/form_sections.html' %}
                 {% include 'components/doctor_section.html' %}
                 {% include 'components/form_buttons.html' %}
             </form>
 
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p style="margin-top: 15px; color: #64748b;">Генерируем документ...</p>
+            <div class="loading d-none" id="loading">
+                <div class="d-flex flex-column align-items-center justify-content-center py-5">
+                    <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p class="text-muted">Генерируем документ...</p>
+                </div>
             </div>
         </div>
     </div>
 
     {% include 'components/modal.html' %}
 
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

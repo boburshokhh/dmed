@@ -1,68 +1,67 @@
 <!-- Секция информации о пациенте -->
-<div class="section-title">Информация о пациенте</div>
+<h5 class="mb-4 text-primary">
+    <i class="bi bi-person-fill me-2"></i>Информация о пациенте
+</h5>
 
-<div class="form-group">
-    <label class="form-label">ФИО пациента *</label>
-    <input type="text" class="form-input" name="patient_name" required>
+<div class="mb-3">
+    <label class="form-label fw-semibold">ФИО пациента <span class="text-danger">*</span></label>
+    <input type="text" class="form-control" name="patient_name" required>
 </div>
 
-<div class="form-row">
-    <div class="form-group">
-        <label class="form-label">Пол</label>
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label class="form-label fw-semibold">Пол</label>
         <select class="form-select" name="gender">
             <option value="">Выберите</option>
             <option value="Erkak">Erkak (Мужской)</option>
             <option value="Ayol">Ayol (Женский)</option>
         </select>
     </div>
-
-    <div class="form-group">
-        <label class="form-label">Возраст</label>
-        <input type="text" class="form-input" name="age" placeholder="Например: 20 yosh">
+    <div class="col-md-6">
+        <label class="form-label fw-semibold">Возраст</label>
+        <input type="text" class="form-control" name="age" placeholder="Например: 20 yosh">
     </div>
 </div>
 
-<div class="form-group">
-    <label class="form-label">JShShIR (ИНН/Паспорт)</label>
-    <input type="text" class="form-input" name="jshshir" placeholder="Например: 51506056600101">
+<div class="mb-3">
+    <label class="form-label fw-semibold">JShShIR (ИНН/Паспорт)</label>
+    <input type="text" class="form-control" name="jshshir" placeholder="Например: 51506056600101">
 </div>
 
-<div class="form-group">
-    <label class="form-label">Yashash manzili (Адрес проживания)</label>
-    <input type="text" class="form-input" name="address" placeholder="Город, район, улица, дом">
+<div class="mb-3">
+    <label class="form-label fw-semibold">Yashash manzili (Адрес проживания)</label>
+    <input type="text" class="form-control" name="address" placeholder="Город, район, улица, дом">
 </div>
 
-<div class="form-group">
-    <label class="form-label">Biriktirilgan tibbiy muassasa (Прикрепленное медицинское учреждение)</label>
-    <input type="text" class="form-input" name="attached_medical_institution" placeholder="Например: 4-sonli oilaviy poliklinika">
+<div class="mb-3">
+    <label class="form-label fw-semibold">Biriktirilgan tibbiy muassasa (Прикрепленное медицинское учреждение)</label>
+    <input type="text" class="form-control" name="attached_medical_institution" placeholder="Например: 4-sonli oilaviy poliklinika">
 </div>
 
-<div class="form-row">
-    <div class="form-group">
-        <label class="form-label">Tashxis (Диагноз)</label>
-        <input type="text" class="form-input" name="diagnosis" placeholder="Название диагноза">
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label class="form-label fw-semibold">Tashxis (Диагноз)</label>
+        <input type="text" class="form-control" name="diagnosis" placeholder="Название диагноза">
     </div>
-
-    <div class="form-group">
-        <label class="form-label">KXT-10 kodi (Код МКБ-10)</label>
-        <input type="text" class="form-input" name="diagnosis_icd10_code" placeholder="Например: J04.1">
-    </div>
-</div>
-
-<div class="form-row">
-    <div class="form-group">
-        <label class="form-label">Yakuniy tashxis (Финальный диагноз)</label>
-        <input type="text" class="form-input" name="final_diagnosis" placeholder="Финальный диагноз">
-    </div>
-
-    <div class="form-group">
-        <label class="form-label">Yakuniy tashxis KXT-10 kodi</label>
-        <input type="text" class="form-input" name="final_diagnosis_icd10_code" placeholder="Например: J04.1">
+    <div class="col-md-6">
+        <label class="form-label fw-semibold">KXT-10 kodi (Код МКБ-10)</label>
+        <input type="text" class="form-control" name="diagnosis_icd10_code" placeholder="Например: J04.1">
     </div>
 </div>
 
-<div class="form-group">
-    <label class="form-label">Организация</label>
-    <input type="text" class="form-input" name="organization" placeholder="Название организации">
+<div class="row mb-3">
+    <div class="col-md-6">
+        <label class="form-label fw-semibold">Yakuniy tashxis (Финальный диагноз)</label>
+        <input type="text" class="form-control" name="final_diagnosis" placeholder="Финальный диагноз">
+    </div>
+    <div class="col-md-6">
+        <label class="form-label fw-semibold">Yakuniy tashxis KXT-10 kodi</label>
+        <input type="text" class="form-control" name="final_diagnosis_icd10_code" placeholder="Например: J04.1">
+    </div>
+</div>
+
+<div class="mb-4">
+    <label class="form-label fw-semibold">Организация</label>
+    <input type="text" class="form-control" name="organization" placeholder="Название организации">
 </div>
 

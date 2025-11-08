@@ -1,6 +1,9 @@
 // Функция закрытия модального окна
 function closeModal() {
-    document.getElementById('resultModal').style.display = 'none';
+    const modal = bootstrap.Modal.getInstance(document.getElementById('resultModal'));
+    if (modal) {
+        modal.hide();
+    }
     document.getElementById('documentForm').reset();
 }
 
@@ -104,8 +107,8 @@ function collectFormData() {
 // Функция отправки формы
 async function submitForm(data) {
     // Показываем загрузку
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('documentForm').style.display = 'none';
+    document.getElementById('loading').classList.remove('d-none');
+    document.getElementById('documentForm').classList.add('d-none');
 
     try {
         const response = await fetch('/create-document', {
@@ -131,8 +134,8 @@ async function submitForm(data) {
         alert('Ошибка при отправке формы: ' + error.message);
     } finally {
         // Скрываем загрузку
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('documentForm').style.display = 'block';
+        document.getElementById('loading').classList.add('d-none');
+        document.getElementById('documentForm').classList.remove('d-none');
     }
 }
 
@@ -143,8 +146,15 @@ function showSuccessModal(result) {
     document.getElementById('resultPinCode').textContent = result.pin_code;
     document.getElementById('downloadLink').href = result.download_url;
     
-    // Показываем модальное окно
-    document.getElementById('resultModal').style.display = 'flex';
+    // Показываем модальное окно через Bootstrap API
+    const modalElement = document.getElementById('resultModal');
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+    
+    // Сбрасываем форму при закрытии модального окна
+    modalElement.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('documentForm').reset();
+    }, { once: true });
 }
 
 // Инициализация при загрузке страницы

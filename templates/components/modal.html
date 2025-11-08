@@ -1,46 +1,62 @@
 <!-- Модальное окно результата -->
-<div class="result-modal" id="resultModal" onclick="if(event.target === this) closeModal()">
-    <div class="result-content" onclick="event.stopPropagation()">
-        <div class="success-icon">✓</div>
-        <div class="result-title">Документ успешно создан!</div>
-        
-        <div class="result-info">
-            <div class="result-row">
-                <span class="result-label">Номер документа:</span>
-                <span class="result-value" id="resultDocNumber"></span>
+<div class="modal fade" id="resultModal" tabindex="-1" aria-labelledby="resultModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="result-row">
-                <span class="result-label">PIN-код для проверки:</span>
-                <span class="result-value pin-code" id="resultPinCode"></span>
+            <div class="modal-body text-center">
+                <div class="mb-4">
+                    <div class="bg-success bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+                    </div>
+                </div>
+                <h4 class="modal-title fw-bold mb-4" id="resultModalLabel">Документ успешно создан!</h4>
+                
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="fw-semibold">Номер документа:</span>
+                            <span class="badge bg-primary fs-6" id="resultDocNumber"></span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold">PIN-код для проверки:</span>
+                            <span class="badge bg-warning text-dark fs-5 px-3 py-2" id="resultPinCode"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info text-start mb-4">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>Важно:</strong> Сохраните PIN-код! Он понадобится для проверки подлинности документа.<br>
+                    Документ создан в формате PDF с автоматической генерацией QR-кода.
+                </div>
+
+                <div class="d-grid gap-2 mb-4">
+                    <a href="#" id="downloadLink" class="btn btn-primary btn-lg" download>
+                        <i class="bi bi-download me-2"></i>Скачать PDF
+                    </a>
+                </div>
+
+                <div class="alert alert-light text-start border-start border-primary border-4">
+                    <h6 class="alert-heading">
+                        <i class="bi bi-info-circle me-2"></i>Информация о документе:
+                    </h6>
+                    <ul class="mb-0 small">
+                        <li>Документ создан в формате PDF</li>
+                        <li>Все данные заполнены из формы</li>
+                        <li>QR-код добавлен автоматически</li>
+                        <li>PIN-код сгенерирован для верификации</li>
+                        <li>Документ сохранен в базе данных</li>
+                        <li>Имя файла: UUID документа</li>
+                    </ul>
+                </div>
+
+                <button type="button" class="btn btn-link text-muted text-decoration-none" data-bs-dismiss="modal">
+                    Создать новый документ
+                </button>
             </div>
         </div>
-
-        <p style="color: #64748b; margin-bottom: 20px; font-size: 14px;">
-            Сохраните PIN-код! Он понадобится для проверки подлинности документа.<br>
-            Документ создан в формате PDF с автоматической генерацией QR-кода.
-        </p>
-
-        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px;">
-            <a href="#" id="downloadLink" class="btn-download" download>
-                📄 Скачать PDF
-            </a>
-        </div>
-
-        <div style="background: #f0f9ff; border-left: 4px solid #2563EB; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: left;">
-            <div style="font-weight: 600; color: #1e40af; margin-bottom: 5px;">ℹ️ Информация о документе:</div>
-            <div style="color: #475569; font-size: 13px; line-height: 1.6;">
-                • Документ создан в формате PDF<br>
-                • Все данные заполнены из формы<br>
-                • QR-код добавлен автоматически<br>
-                • PIN-код сгенерирован для верификации<br>
-                • Документ сохранен в базе данных<br>
-                • Имя файла: UUID документа
-            </div>
-        </div>
-
-        <button onclick="closeModal()" style="margin-top: 15px; background: none; border: none; color: #64748b; cursor: pointer; text-decoration: underline;">
-            Создать новый документ
-        </button>
     </div>
 </div>
 
