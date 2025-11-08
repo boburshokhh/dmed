@@ -121,18 +121,32 @@ def create_document():
             print(f"Предупреждение: Не удалось обновить путь к DOCX в БД: {db_error}")
         
         # Конвертируем DOCX в PDF
+        print(f"[INFO] Начинаем конвертацию DOCX->PDF. docx_path={docx_path}")
         pdf_path = convert_docx_to_pdf_from_docx(docx_path, created_document, app=app)
         
         if not pdf_path:
             error_detail = "Не удалось конвертировать DOCX в PDF. Проверьте логи сервера."
-            print(f"ОШИБКА: {error_detail}")
+            print(f"[ERROR] {error_detail}")
+            print(f"[ERROR] docx_path был: {docx_path}")
+            print(f"[ERROR] Проверьте, установлены ли библиотеки: mammoth, weasyprint, docx2pdf")
             import traceback
             print(traceback.format_exc())
             return jsonify({'success': False, 'error': error_detail}), 500
         
-        if not storage_manager.file_exists(pdf_path):
+        print(f"[INFO] Конвертация завершена, pdf_path={pdf_path}")
+        
+        # Проверяем существование файла
+        file_exists = False
+        if storage_manager.use_minio:
+            file_exists = storage_manager.file_exists(pdf_path)
+            print(f"[INFO] Проверка файла в MinIO: {file_exists}")
+        else:
+            file_exists = os.path.exists(pdf_path)
+            print(f"[INFO] Проверка локального файла: {file_exists}, путь: {pdf_path}")
+        
+        if not file_exists:
             error_detail = f"PDF файл не найден после конвертации: {pdf_path}"
-            print(f"ОШИБКА: {error_detail}")
+            print(f"[ERROR] {error_detail}")
             return jsonify({'success': False, 'error': error_detail}), 500
         
         # Обновляем путь к PDF в базе данных

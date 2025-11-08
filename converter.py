@@ -65,7 +65,42 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
             upload_folder = app.config.get('UPLOAD_FOLDER', 'static/generated_documents') if app else 'static/generated_documents'
             output_path = os.path.join(upload_folder, f"{document_uuid}.pdf")
         
-        # Метод 1: mammoth + weasyprint
+        # Метод 1: docx2pdf (приоритетный, так как более надежный и не требует GTK+)
+        if DOCX2PDF_AVAILABLE:
+            try:
+                print(f"[INFO] Пытаемся конвертировать через docx2pdf (приоритетный метод)...")
+                convert(docx_path, output_path)
+                
+                if os.path.exists(output_path):
+                    file_size = os.path.getsize(output_path)
+                    print(f"[OK] DOCX успешно конвертирован в PDF через docx2pdf: {output_path}, размер: {file_size} байт")
+                    with open(output_path, 'rb') as f:
+                        pdf_data = f.read()
+                    
+                    pdf_filename = os.path.basename(output_path)
+                    stored_path = storage_manager.save_file(pdf_data, pdf_filename, 'application/pdf')
+                    
+                    if storage_manager.use_minio and os.path.exists(output_path):
+                        try:
+                            os.remove(output_path)
+                        except:
+                            pass
+                    
+                    if temp_docx_path and os.path.exists(temp_docx_path):
+                        try:
+                            os.remove(temp_docx_path)
+                        except:
+                            pass
+                    
+                    return stored_path
+            except Exception as e:
+                print(f"[WARNING] Ошибка при конвертации через docx2pdf: {e}")
+                import traceback
+                print(traceback.format_exc())
+                print("Примечание: docx2pdf требует установленного LibreOffice или Microsoft Word.")
+                print("Пробуем альтернативный метод...")
+        
+        # Метод 2: mammoth + weasyprint
         if MAMMOTH_AVAILABLE and WEASYPRINT_AVAILABLE:
             try:
                 def convert_image(image):
@@ -162,42 +197,16 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
                 print(traceback.format_exc())
                 print("Пробуем альтернативный метод...")
         
-        # Метод 2: docx2pdf
-        if DOCX2PDF_AVAILABLE:
-            try:
-                print(f"[INFO] Пытаемся конвертировать через docx2pdf...")
-                convert(docx_path, output_path)
-                
-                if os.path.exists(output_path):
-                    file_size = os.path.getsize(output_path)
-                    print(f"[OK] DOCX успешно конвертирован в PDF через docx2pdf: {output_path}, размер: {file_size} байт")
-                    with open(output_path, 'rb') as f:
-                        pdf_data = f.read()
-                    
-                    pdf_filename = os.path.basename(output_path)
-                    stored_path = storage_manager.save_file(pdf_data, pdf_filename, 'application/pdf')
-                    
-                    if storage_manager.use_minio and os.path.exists(output_path):
-                        try:
-                            os.remove(output_path)
-                        except:
-                            pass
-                    
-                    if temp_docx_path and os.path.exists(temp_docx_path):
-                        try:
-                            os.remove(temp_docx_path)
-                        except:
-                            pass
-                    
-                    return stored_path
-            except Exception as e:
-                print(f"[WARNING] Ошибка при конвертации через docx2pdf: {e}")
-                print("Используем альтернативный метод...")
         
         # Если ни один метод не сработал
         print(f"[ERROR] Все методы конвертации DOCX->PDF не удались")
         print(f"[ERROR] MAMMOTH_AVAILABLE={MAMMOTH_AVAILABLE}, WEASYPRINT_AVAILABLE={WEASYPRINT_AVAILABLE}")
         print(f"[ERROR] DOCX2PDF_AVAILABLE={DOCX2PDF_AVAILABLE}")
+        print(f"[ERROR] docx_path={docx_path}")
+        print(f"[ERROR] output_path={output_path}")
+        print(f"[ERROR] Проверьте установку библиотек:")
+        print(f"[ERROR]   - pip install mammoth weasyprint")
+        print(f"[ERROR]   - pip install docx2pdf (требует LibreOffice или Word)")
         
         if temp_docx_path and os.path.exists(temp_docx_path):
             try:
