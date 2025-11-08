@@ -358,20 +358,57 @@ def convert_docx_to_pdf_route(doc_id):
         
         converted_pdf = convert_docx_to_pdf_from_docx(docx_path, document, pdf_output_path, app=app)
         
-        if converted_pdf and os.path.exists(converted_pdf):
-            try:
-                db_update('documents', {'pdf_path': converted_pdf}, 'id = %s', [doc_id])
-            except:
-                pass
-            
+        if not converted_pdf:
+            error_detail = "Функция конвертации вернула None. Проверьте логи сервера для деталей."
+            print(f"[ERROR] {error_detail}")
+            return jsonify({'success': False, 'error': error_detail}), 500
+        
+        print(f"[INFO] Конвертация завершена, путь к PDF: {converted_pdf}")
+        
+        # Проверяем, существует ли файл (в хранилище или локально)
+        file_exists = False
+        if storage_manager.use_minio:
+            # Для MinIO проверяем через storage_manager
+            file_exists = storage_manager.file_exists(converted_pdf)
+            print(f"[INFO] Проверка файла в MinIO: {file_exists}")
+        else:
+            # Для локального хранилища проверяем через os.path.exists
+            file_exists = os.path.exists(converted_pdf)
+            print(f"[INFO] Проверка локального файла: {file_exists}, путь: {converted_pdf}")
+        
+        if not file_exists:
+            error_detail = f"PDF файл не найден после конвертации: {converted_pdf}"
+            print(f"[ERROR] {error_detail}")
+            return jsonify({'success': False, 'error': error_detail}), 500
+        
+        try:
+            db_update('documents', {'pdf_path': converted_pdf}, 'id = %s', [doc_id])
+        except Exception as db_err:
+            print(f"[WARNING] Не удалось обновить путь к PDF в БД: {db_err}")
+        
+        # Получаем файл из хранилища
+        file_data = storage_manager.get_file(converted_pdf)
+        if file_data:
+            print(f"[OK] PDF получен из хранилища, размер: {len(file_data)} байт")
+            return send_file(
+                BytesIO(file_data),
+                as_attachment=True,
+                download_name=f'{document_uuid}.pdf',
+                mimetype='application/pdf'
+            )
+        # Если не получилось из хранилища, пробуем локально
+        elif os.path.exists(converted_pdf):
+            print(f"[OK] PDF найден локально: {converted_pdf}")
             return send_file(
                 converted_pdf,
                 as_attachment=True,
                 download_name=f'{document_uuid}.pdf',
                 mimetype='application/pdf'
             )
-        else:
-            return jsonify({'success': False, 'error': 'Не удалось конвертировать DOCX в PDF. Проверьте логи сервера.'}), 500
+        
+        error_detail = f"Не удалось получить PDF файл из хранилища или локально: {converted_pdf}"
+        print(f"[ERROR] {error_detail}")
+        return jsonify({'success': False, 'error': error_detail}), 500
             
     except Exception as e:
         import traceback
