@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMED Documents - Создание документа</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        {% include 'components/header.html' %}
+
+        <div class="form-container">
+            <form id="documentForm">
+                {% include 'components/form_sections.html' %}
+                {% include 'components/doctor_section.html' %}
+                {% include 'components/form_buttons.html' %}
+            </form>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="margin-top: 15px; color: #64748b;">Генерируем документ...</p>
+            </div>
+        </div>
+    </div>
+
+    {% include 'components/modal.html' %}
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
+

@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMED Documents - Проверка документа</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2563EB 0%, #1e40af 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 36px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .logo-icon {
+            font-size: 48px;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+            text-align: center;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+
+        .description {
+            color: #64748b;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .pin-input-container {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 30px 0;
+        }
+
+        .pin-digit {
+            width: 70px;
+            height: 70px;
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+            border: 3px solid #e2e8f0;
+            border-radius: 12px;
+            transition: all 0.3s;
+        }
+
+        .pin-digit:focus {
+            outline: none;
+            border-color: #2563EB;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .btn-verify {
+            background: linear-gradient(135deg, #2563EB 0%, #1e40af 100%);
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+
+        .btn-verify:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn-verify:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .language-selector {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 10px;
+            padding: 10px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 10px;
+        }
+
+        .lang-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-weight: 500;
+            color: #64748b;
+            transition: all 0.2s;
+        }
+
+        .lang-btn.active {
+            background: #2563EB;
+            color: white;
+        }
+
+        .lang-btn:hover {
+            background: #f1f5f9;
+        }
+
+        .lang-btn.active:hover {
+            background: #1e40af;
+        }
+
+        .error-message {
+            display: none;
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .loading {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #2563EB;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info-box {
+            background: #f0f9ff;
+            border-left: 4px solid #2563EB;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .info-box-title {
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 5px;
+        }
+
+        .info-box-text {
+            color: #475569;
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            .pin-digit {
+                width: 60px;
+                height: 60px;
+                font-size: 28px;
+            }
+
+            .pin-input-container {
+                gap: 10px;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="language-selector">
+        <button class="lang-btn active" data-lang="ru">🇷🇺 Русский</button>
+        <button class="lang-btn" data-lang="uz">🇺🇿 O'zbekcha</button>
+        <button class="lang-btn" data-lang="en">🇬🇧 English</button>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <span class="logo-icon">✱</span>DMED Documents
+            </div>
+            <div class="subtitle">Система проверки подлинности медицинских документов</div>
+        </div>
+
+        <div class="content">
+            <div class="title">Введите PIN-код для просмотра документа</div>
+            <div class="description">
+                PIN-код размещается рядом с QR-кодом на документе. Введите 4 цифры для проверки подлинности.
+            </div>
+
+            <div class="info-box">
+                <div class="info-box-title">ℹ️ Как это работает?</div>
+                <div class="info-box-text">
+                    PIN-код размещается рядом с QR-кодом документа. Он используется для проверки подлинности и просмотра оригинала документа.
+                </div>
+            </div>
+
+            <form id="verifyForm">
+                <div class="pin-input-container">
+                    <input type="text" maxlength="1" class="pin-digit" id="digit1" pattern="[0-9]" inputmode="numeric">
+                    <input type="text" maxlength="1" class="pin-digit" id="digit2" pattern="[0-9]" inputmode="numeric">
+                    <input type="text" maxlength="1" class="pin-digit" id="digit3" pattern="[0-9]" inputmode="numeric">
+                    <input type="text" maxlength="1" class="pin-digit" id="digit4" pattern="[0-9]" inputmode="numeric">
+                </div>
+
+                <button type="submit" class="btn-verify" id="verifyBtn">
+                    Открыть документ
+                </button>
+            </form>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+            </div>
+
+            <div class="error-message" id="errorMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        // Автоматический переход между полями PIN-кода
+        const digitInputs = document.querySelectorAll('.pin-digit');
+        
+        digitInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                const value = e.target.value;
+                
+                // Разрешаем только цифры
+                if (!/^\d$/.test(value)) {
+                    e.target.value = '';
+                    return;
+                }
+                
+                // Переход к следующему полю
+                if (value && index < digitInputs.length - 1) {
+                    digitInputs[index + 1].focus();
+                }
+            });
+
+            input.addEventListener('keydown', (e) => {
+                // Backspace - переход к предыдущему полю
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    digitInputs[index - 1].focus();
+                }
+            });
+
+            // Вставка из буфера обмена
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pasteData = e.clipboardData.getData('text');
+                const digits = pasteData.match(/\d/g);
+                
+                if (digits) {
+                    digits.slice(0, 4).forEach((digit, i) => {
+                        if (digitInputs[i]) {
+                            digitInputs[i].value = digit;
+                        }
+                    });
+                    digitInputs[Math.min(digits.length, 3)].focus();
+                }
+            });
+        });
+
+        // Обработка формы
+        document.getElementById('verifyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Собираем PIN-код
+            const pinCode = Array.from(digitInputs).map(input => input.value).join('');
+            
+            if (pinCode.length !== 4) {
+                showError('Пожалуйста, введите все 4 цифры PIN-кода');
+                return;
+            }
+
+            // Показываем загрузку
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('verifyBtn').disabled = true;
+            document.getElementById('errorMessage').style.display = 'none';
+
+            try {
+                const response = await fetch('/verify-pin', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ pin_code: pinCode })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Перенаправляем на страницу документа
+                    window.location.href = `/document/${result.document.doc_number}?data=${encodeURIComponent(JSON.stringify(result.document))}`;
+                } else {
+                    showError(result.error || 'Документ с таким PIN-кодом не найден');
+                }
+            } catch (error) {
+                showError('Ошибка при проверке документа: ' + error.message);
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('verifyBtn').disabled = false;
+            }
+        });
+
+        function showError(message) {
+            const errorEl = document.getElementById('errorMessage');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
+
+        // Фокус на первом поле при загрузке
+        window.addEventListener('load', () => {
+            digitInputs[0].focus();
+        });
+
+        // Переключение языков (заготовка)
+        document.querySelectorAll('.lang-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                // Здесь можно добавить переключение языков
+            });
+        });
+    </script>
+</body>
+</html>
+

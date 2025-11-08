@@ -1,0 +1,68 @@
+<!-- Секция информации о пациенте -->
+<div class="section-title">Информация о пациенте</div>
+
+<div class="form-group">
+    <label class="form-label">ФИО пациента *</label>
+    <input type="text" class="form-input" name="patient_name" required>
+</div>
+
+<div class="form-row">
+    <div class="form-group">
+        <label class="form-label">Пол</label>
+        <select class="form-select" name="gender">
+            <option value="">Выберите</option>
+            <option value="Erkak">Erkak (Мужской)</option>
+            <option value="Ayol">Ayol (Женский)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">Возраст</label>
+        <input type="text" class="form-input" name="age" placeholder="Например: 20 yosh">
+    </div>
+</div>
+
+<div class="form-group">
+    <label class="form-label">JShShIR (ИНН/Паспорт)</label>
+    <input type="text" class="form-input" name="jshshir" placeholder="Например: 51506056600101">
+</div>
+
+<div class="form-group">
+    <label class="form-label">Yashash manzili (Адрес проживания)</label>
+    <input type="text" class="form-input" name="address" placeholder="Город, район, улица, дом">
+</div>
+
+<div class="form-group">
+    <label class="form-label">Biriktirilgan tibbiy muassasa (Прикрепленное медицинское учреждение)</label>
+    <input type="text" class="form-input" name="attached_medical_institution" placeholder="Например: 4-sonli oilaviy poliklinika">
+</div>
+
+<div class="form-row">
+    <div class="form-group">
+        <label class="form-label">Tashxis (Диагноз)</label>
+        <input type="text" class="form-input" name="diagnosis" placeholder="Название диагноза">
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">KXT-10 kodi (Код МКБ-10)</label>
+        <input type="text" class="form-input" name="diagnosis_icd10_code" placeholder="Например: J04.1">
+    </div>
+</div>
+
+<div class="form-row">
+    <div class="form-group">
+        <label class="form-label">Yakuniy tashxis (Финальный диагноз)</label>
+        <input type="text" class="form-input" name="final_diagnosis" placeholder="Финальный диагноз">
+    </div>
+
+    <div class="form-group">
+        <label class="form-label">Yakuniy tashxis KXT-10 kodi</label>
+        <input type="text" class="form-input" name="final_diagnosis_icd10_code" placeholder="Например: J04.1">
+    </div>
+</div>
+
+<div class="form-group">
+    <label class="form-label">Организация</label>
+    <input type="text" class="form-input" name="organization" placeholder="Название организации">
+</div>
+
