@@ -124,7 +124,6 @@ def generate_document():
 
 
 @documents_bp.route('/<int:doc_id>/download', methods=['GET'])
-@require_auth
 def download_document(doc_id):
     """Скачивание PDF документа"""
     try:
