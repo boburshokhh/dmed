@@ -128,7 +128,12 @@ def generate_qr_code(url):
     # - logo size_ratio: 0.22 (22% от размера QR-кода)
     # - logo overprint: true (логотип поверх, без белого фона)
     
-    ERROR_CORRECT_H = qrcode.constants.ERROR_CORRECT_H  # Уровень коррекции ошибок H (High)
+    # Уровень коррекции ошибок H (High) - позволяет заменить до 30% данных
+    try:
+        ERROR_CORRECT_H = qrcode.constants.ERROR_CORRECT_H
+    except AttributeError:
+        # Fallback для старых версий qrcode
+        ERROR_CORRECT_H = 3
     
     qr = qrcode.QRCode(
         version=None,  # Автоматический выбор версии
