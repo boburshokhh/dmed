@@ -2,7 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   env: {
-    API_URL: process.env.API_URL || 'http://localhost:5000',
+    API_URL: process.env.API_URL || 'https://dmed.gubkin.uz',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://dmed.gubkin.uz',
   },
 }
 

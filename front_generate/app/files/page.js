@@ -359,7 +359,10 @@ export default function FilesPage() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => window.open(`${process.env.API_URL?.replace('/api', '')}/api/files/download/${encodeURIComponent(file.name)}`, '_blank')}
+                                onClick={() => {
+                                  const apiBase = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'https://dmed.gubkin.uz'
+                                  window.open(`${apiBase}/api/files/download/${encodeURIComponent(file.name)}`, '_blank')
+                                }}
                                 className="h-8 w-8 sm:h-10 sm:w-10 p-0"
                               >
                                 <Download className="h-3 w-3 sm:h-4 sm:w-4" />

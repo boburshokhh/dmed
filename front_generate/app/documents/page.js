@@ -300,7 +300,10 @@ export default function DocumentsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => window.open(`${process.env.API_URL?.replace('/api', '')}/download/${doc.id}`, '_blank')}
+                              onClick={() => {
+                                const apiBase = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'https://dmed.gubkin.uz'
+                                window.open(`${apiBase}/api/documents/${doc.id}/download`, '_blank')
+                              }}
                               className="text-xs sm:text-sm"
                             >
                               <Download className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />

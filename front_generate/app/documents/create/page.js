@@ -103,7 +103,8 @@ export default function CreateDocumentPage() {
         setResult({
           doc_number: response.data.doc_number,
           pin_code: response.data.pin_code,
-          download_url: response.data.download_url
+          download_url: response.data.download_url,
+          doc_id: response.data.document_id || response.data.doc_id || response.data.id
         })
         setModalOpen(true)
         
@@ -187,9 +188,10 @@ export default function CreateDocumentPage() {
   }
 
   const handleDownload = () => {
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'https://dmed.gubkin.uz'
+    
     if (result?.doc_id) {
       // Используем doc_id для формирования правильного URL
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
       window.open(`${apiBase}/api/documents/${result.doc_id}/download`, '_blank')
     } else if (result?.download_url) {
       // Если есть download_url, проверяем его формат
@@ -198,11 +200,9 @@ export default function CreateDocumentPage() {
         window.open(downloadUrl, '_blank')
       } else if (downloadUrl.startsWith('/')) {
         // Если путь начинается с /, добавляем базовый URL
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
         window.open(`${apiBase}${downloadUrl}`, '_blank')
       } else {
         // Если это просто путь без /, формируем полный путь
-        const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
         window.open(`${apiBase}/api/documents/${downloadUrl}/download`, '_blank')
       }
     }
@@ -486,47 +486,47 @@ export default function CreateDocumentPage() {
 
         {/* Модальное окно успешного создания */}
         <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-          <DialogContent className="max-w-[95vw] sm:max-w-md">
+          <DialogContent className="max-w-[95vw] sm:max-w-lg w-full mx-4">
             <DialogHeader>
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className="mx-auto mb-3 sm:mb-4 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-green-100">
+                <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
               </div>
-              <DialogTitle className="text-center text-xl sm:text-2xl">Документ успешно создан!</DialogTitle>
+              <DialogTitle className="text-center text-lg sm:text-xl md:text-2xl">Документ успешно создан!</DialogTitle>
               <DialogDescription className="text-center text-xs sm:text-sm">
                 Сохраните PIN-код для верификации документа
               </DialogDescription>
             </DialogHeader>
             
-            <div className="space-y-4 py-4">
-              <div className="space-y-3 rounded-lg border bg-muted p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">Номер документа:</span>
-                  <span className="font-mono font-bold text-lg">{result?.doc_number}</span>
+            <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
+              <div className="space-y-2 sm:space-y-3 rounded-lg border bg-muted p-3 sm:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                  <span className="text-xs sm:text-sm font-medium text-muted-foreground">Номер документа:</span>
+                  <span className="font-mono font-bold text-base sm:text-lg break-all text-right sm:text-left">{result?.doc_number}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">PIN-код:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl font-mono font-bold text-primary">{result?.pin_code}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <span className="text-xs sm:text-sm font-medium text-muted-foreground">PIN-код:</span>
+                  <div className="flex items-center gap-2 justify-center sm:justify-end">
+                    <span className="text-xl sm:text-2xl font-mono font-bold text-primary">{result?.pin_code}</span>
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={handleCopyPin}
-                      className="h-8 w-8"
+                      className="h-7 w-7 sm:h-8 sm:w-8"
                     >
-                      <Copy className="h-4 w-4" />
+                      <Copy className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                   </div>
                 </div>
               </div>
               
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 sm:p-3">
                 <p className="text-xs text-amber-800 text-center">
                   <strong>Важно!</strong> Сохраните PIN-код. Он потребуется для верификации документа.
                 </p>
               </div>
             </div>
 
-            <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
               <Button
                 onClick={handleDownload}
                 className="w-full sm:w-auto"
