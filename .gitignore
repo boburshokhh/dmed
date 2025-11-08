@@ -4,9 +4,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
-venv/
-ENV/
 build/
 develop-eggs/
 dist/
@@ -50,10 +47,6 @@ Thumbs.db
 
 # Logs
 *.log
-
-# Environment variables
-.env
-.env.local
 
 # Temporary files
 *.tmp
