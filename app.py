@@ -81,62 +81,38 @@ app.config['SECRET_KEY'] = SECRET_KEY
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['TEMPLATE_FOLDER'] = 'templates/docx_templates'
 
-# Настройка CORS
+# Настройка CORS - разрешаем все origins для разработки и продакшена
 CORS(app, resources={
     r"/api/*": {
-        "origins": [
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:3001",
-            "https://dmed.netlify.app",
-            "https://*.netlify.app"
-        ],
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization", "Range"],
+        "origins": "*",  # Разрешаем все origins
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        "allow_headers": ["Content-Type", "Authorization", "Range", "X-Requested-With", "Accept"],
         "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length"],
-        "supports_credentials": True
+        "supports_credentials": True,
+        "max_age": 3600
     },
     r"/verify-pin": {
-        "origins": [
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:3001",
-            "https://dmed.netlify.app",
-            "https://*.netlify.app"
-        ],
+        "origins": "*",  # Разрешаем все origins
         "methods": ["POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": True
+        "supports_credentials": True,
+        "max_age": 3600
     },
     r"/download/*": {
-        "origins": [
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:3001",
-            "https://dmed.netlify.app",
-            "https://*.netlify.app"
-        ],
+        "origins": "*",  # Разрешаем все origins
         "methods": ["GET", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization", "Range"],
         "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
-        "supports_credentials": True
+        "supports_credentials": True,
+        "max_age": 3600
     },
     r"/download-by-uuid/*": {
-        "origins": [
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://127.0.0.1:3000",
-            "http://127.0.0.1:3001",
-            "https://dmed.netlify.app",
-            "https://*.netlify.app"
-        ],
+        "origins": "*",  # Разрешаем все origins
         "methods": ["GET", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization", "Range"],
         "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
-        "supports_credentials": True
+        "supports_credentials": True,
+        "max_age": 3600
     }
 })
 
