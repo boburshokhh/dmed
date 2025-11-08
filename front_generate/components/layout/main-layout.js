@@ -36,10 +36,17 @@ export function MainLayout({ children }) {
 
   const getBreadcrumbs = () => {
     const paths = pathname.split('/').filter(Boolean)
-    const breadcrumbs = [
-      { href: '/dashboard', label: 'Главная' }
-    ]
+    const breadcrumbs = []
 
+    // Если мы на главной странице, возвращаем только её
+    if (pathname === '/dashboard' || pathname === '/') {
+      return [{ href: '/dashboard', label: 'Главная', isLast: true }]
+    }
+
+    // Добавляем главную страницу
+    breadcrumbs.push({ href: '/dashboard', label: 'Главная' })
+
+    // Строим путь для остальных страниц
     if (paths.length > 0) {
       let currentPath = ''
       paths.forEach((path, index) => {

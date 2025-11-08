@@ -82,50 +82,60 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['TEMPLATE_FOLDER'] = 'templates/docx_templates'
 
 # Настройка CORS - разрешаем все origins для разработки и продакшена
-# Используем функцию для динамической проверки origins
-def get_allowed_origins():
-    """Возвращает список разрешенных origins"""
-    return [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "https://dmed.netlify.app",
-    ]
+# Дополнительная обработка OPTIONS запросов для всех маршрутов (должна быть ПЕРЕД CORS)
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = jsonify({})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type, Authorization, Range, X-Requested-With, Accept")
+        response.headers.add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+        response.headers.add("Access-Control-Max-Age", "3600")
+        return response
 
 # Простая конфигурация CORS - разрешаем все origins
-CORS(app, resources={
-    r"/api/*": {
-        "origins": "*",  # Разрешаем все origins
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-        "allow_headers": ["Content-Type", "Authorization", "Range", "X-Requested-With", "Accept"],
-        "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length"],
-        "supports_credentials": False,  # Отключаем credentials для совместимости с "*"
-        "max_age": 3600
-    },
-    r"/verify-pin": {
-        "origins": "*",
-        "methods": ["POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": False,
-        "max_age": 3600
-    },
-    r"/download/*": {
-        "origins": "*",
-        "methods": ["GET", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization", "Range"],
-        "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
-        "supports_credentials": False,
-        "max_age": 3600
-    },
-    r"/download-by-uuid/*": {
-        "origins": "*",
-        "methods": ["GET", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization", "Range"],
-        "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
-        "supports_credentials": False,
-        "max_age": 3600
-    }
+# Используем глобальную конфигурацию для максимальной совместимости
+CORS(app, 
+     resources={
+         r"/api/*": {
+             "origins": "*",
+             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+             "allow_headers": ["Content-Type", "Authorization", "Range", "X-Requested-With", "Accept"],
+             "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length"],
+             "supports_credentials": False,
+             "max_age": 3600
+         },
+         r"/api/admin/*": {
+             "origins": "*",
+             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+             "allow_headers": ["Content-Type", "Authorization", "Range", "X-Requested-With", "Accept"],
+             "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length"],
+             "supports_credentials": False,
+             "max_age": 3600
+         },
+         r"/verify-pin": {
+             "origins": "*",
+             "methods": ["POST", "OPTIONS"],
+             "allow_headers": ["Content-Type", "Authorization"],
+             "supports_credentials": False,
+             "max_age": 3600
+         },
+         r"/download/*": {
+             "origins": "*",
+             "methods": ["GET", "OPTIONS"],
+             "allow_headers": ["Content-Type", "Authorization", "Range"],
+             "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
+             "supports_credentials": False,
+             "max_age": 3600
+         },
+         r"/download-by-uuid/*": {
+             "origins": "*",
+             "methods": ["GET", "OPTIONS"],
+             "allow_headers": ["Content-Type", "Authorization", "Range"],
+             "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
+             "supports_credentials": False,
+             "max_age": 3600
+         }
 })
 
 # Регистрируем Blueprints для API (импортируем после создания app)
