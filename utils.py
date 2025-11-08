@@ -162,11 +162,22 @@ def generate_qr_code(url):
         # Позиция для вставки (центр)
         pos = ((img_width - logo_width) // 2, (img_height - logo_height) // 2)
         
-        # overprint: true - логотип вставляется поверх без белого фона
         # Конвертируем изображение QR-кода в RGBA для поддержки прозрачности
         img = img.convert('RGBA')
         
-        # Вставляем логотип поверх QR-кода (overprint)
+        # Создаем белый квадрат в центре, чтобы убрать черные модули QR-кода под иконкой
+        # Размер белого квадрата немного больше логотипа для лучшей видимости
+        white_square_size = int(logo_size * 1.3)  # На 30% больше логотипа
+        white_square_pos = (
+            (img_width - white_square_size) // 2,
+            (img_height - white_square_size) // 2
+        )
+        
+        # Создаем белый квадрат для удаления черных модулей QR-кода под иконкой
+        white_square = Image.new('RGBA', (white_square_size, white_square_size), (255, 255, 255, 255))
+        img.paste(white_square, white_square_pos, white_square)
+        
+        # Вставляем логотип поверх белого квадрата
         img.paste(logo, pos, logo)
         
         # Конвертируем обратно в RGB

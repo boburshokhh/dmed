@@ -241,7 +241,7 @@ def fill_docx_template(document_data, template_path=None, app=None):
                                 replace_placeholders_with_font(paragraph, replacements)
         
         # Добавляем QR-код
-        add_qr_code_to_docx(doc, document_data.get('pin_code', ''), app)
+        add_qr_code_to_docx(doc, document_data.get('pin_code', ''), app, document_data.get('uuid', ''))
         
         # Сохраняем заполненный документ
         upload_folder = app.config.get('UPLOAD_FOLDER', 'static/generated_documents') if app else 'static/generated_documents'
@@ -350,14 +350,19 @@ def create_default_docx_template():
     return doc
 
 
-def add_qr_code_to_docx(doc, pin_code, app=None):
+def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
     """Добавляет QR-код в DOCX документ"""
     try:
-        try:
-            from flask import url_for
-            qr_url = url_for('verify_document', _external=True)
-        except RuntimeError:
-            qr_url = '/verify'
+        # Генерируем URL для QR-кода: dmed.netlify.app/access/{{uuid}}
+        if document_uuid:
+            qr_url = f"https://dmed.netlify.app/access/{document_uuid}"
+        else:
+            # Fallback на старый способ, если UUID не передан
+            try:
+                from flask import url_for
+                qr_url = url_for('verify_document', _external=True)
+            except RuntimeError:
+                qr_url = '/verify'
         
         qr_img = generate_qr_code(qr_url)
         
