@@ -150,73 +150,94 @@ def fill_docx_template(document_data, template_path=None, app=None):
                         value = str(replacements[part])
                         run = paragraph.add_run(value)
                         
-                        # Специальная обработка для {{pin_code}}
+                        # Специальная обработка для {{pin_code}} - ВСЕ вхождения делаем большими и жирными
                         if part == '{{pin_code}}':
+                            # Большой PIN-код - применяем ко всем вхождениям
+                            # Используем шрифты, доступные на Linux
+                            # Сначала устанавливаем размер - это критично
+                            pin_size = Pt(24)  # Размер шрифта для PIN-кода
+                            
+                            # Если это первое вхождение, отмечаем его
                             if not pin_code_first_occurrence['found']:
-                                try:
-                                    run.font.name = font_name
-                                except:
-                                    try:
-                                        run.font.name = 'Times New Roman'
-                                    except:
-                                        pass
-                                if original_font_size:
-                                    try:
-                                        run.font.size = original_font_size
-                                    except:
-                                        pass
                                 pin_code_first_occurrence['found'] = True
-                            else:
-                                # Большой PIN-код рядом с QR-кодом
-                                # Используем шрифты, доступные на Linux
-                                # Сначала устанавливаем размер - это критично
-                                pin_size = Pt(36)  # Увеличенный размер для лучшей видимости
+                            
+                            # Применяем большой размер и жирность ко всем вхождениям
+                            try:
+                                run.font.size = pin_size
+                                print(f"[INFO] Установлен размер шрифта для PIN-кода: {pin_size.pt}pt")
+                            except Exception as size_error:
+                                print(f"[WARNING] Не удалось установить размер шрифта для PIN-кода: {size_error}")
+                                # Пробуем альтернативный способ через XML
                                 try:
-                                    run.font.size = pin_size
-                                except Exception as size_error:
-                                    print(f"[WARNING] Не удалось установить размер шрифта для PIN-кода: {size_error}")
-                                    # Пробуем альтернативный способ через XML
-                                    try:
-                                        from docx.oxml.ns import qn
-                                        from docx.oxml import OxmlElement
-                                        # Убеждаемся, что rPr существует
-                                        if run._element.rPr is None:
-                                            run._element.get_or_add_rPr()
-                                        # Размер в half-points (36pt = 72 half-points)
-                                        sz_value = int(pin_size.pt * 2)
-                                        sz = OxmlElement('w:sz')
-                                        sz.set(qn('w:val'), str(sz_value))
-                                        run._element.rPr.append(sz)
-                                    except Exception as xml_error:
-                                        print(f"[WARNING] Альтернативный способ установки размера не сработал: {xml_error}")
-                                        pass
-                                
-                                # Пробуем установить шрифт, который точно есть на Linux
-                                font_set = False
-                                for font_name_linux in ['Arial', 'DejaVu Sans', 'Liberation Sans', 'Calibri', 'Helvetica', 'Times New Roman']:
-                                    try:
-                                        run.font.name = font_name_linux
-                                        font_set = True
-                                        print(f"[INFO] Установлен шрифт для PIN-кода: {font_name_linux}")
-                                        break
-                                    except Exception as font_error:
-                                        continue
-                                
-                                if not font_set:
-                                    print("[WARNING] Не удалось установить ни один шрифт для PIN-кода")
-                                
-                                # Устанавливаем жирный шрифт
+                                    from docx.oxml.ns import qn
+                                    from docx.oxml import OxmlElement
+                                    # Убеждаемся, что rPr существует
+                                    if run._element.rPr is None:
+                                        run._element.get_or_add_rPr()
+                                    # Размер в half-points (24pt = 48 half-points)
+                                    sz_value = int(pin_size.pt * 2)
+                                    sz = OxmlElement('w:sz')
+                                    sz.set(qn('w:val'), str(sz_value))
+                                    run._element.rPr.append(sz)
+                                    print(f"[INFO] Размер установлен через XML: {sz_value} half-points")
+                                except Exception as xml_error:
+                                    print(f"[WARNING] Альтернативный способ установки размера не сработал: {xml_error}")
+                                    pass
+                            
+                            # Пробуем установить шрифт, который точно есть на Linux
+                            font_set = False
+                            for font_name_linux in ['Arial', 'DejaVu Sans', 'Liberation Sans', 'Calibri', 'Helvetica', 'Times New Roman']:
                                 try:
-                                    run.bold = True
-                                except Exception as bold_error:
-                                    print(f"[WARNING] Не удалось установить жирный шрифт для PIN-кода: {bold_error}")
-                                    try:
-                                        # Альтернативный способ установки жирного шрифта
-                                        from docx.oxml.ns import qn
-                                        b = run._element.rPr.get_or_add_b()
+                                    run.font.name = font_name_linux
+                                    font_set = True
+                                    print(f"[INFO] Установлен шрифт для PIN-кода: {font_name_linux}")
+                                    break
+                                except Exception as font_error:
+                                    continue
+                            
+                            if not font_set:
+                                print("[WARNING] Не удалось установить ни один шрифт для PIN-кода")
+                            
+                            # Устанавливаем жирный шрифт - применяем все способы
+                            bold_set = False
+                            try:
+                                run.bold = True
+                                bold_set = True
+                                print("[INFO] Жирный шрифт установлен через run.bold")
+                            except Exception as bold_error:
+                                print(f"[WARNING] Не удалось установить жирный шрифт через run.bold: {bold_error}")
+                            
+                            if not bold_set:
+                                try:
+                                    # Альтернативный способ установки жирного шрифта через XML
+                                    from docx.oxml.ns import qn
+                                    if run._element.rPr is None:
+                                        run._element.get_or_add_rPr()
+                                    b = run._element.rPr.get_or_add_b()
+                                    b.set(qn('w:val'), 'true')
+                                    bold_set = True
+                                    print("[INFO] Жирный шрифт установлен через XML")
+                                except Exception as xml_bold_error:
+                                    print(f"[WARNING] Не удалось установить жирный шрифт через XML: {xml_bold_error}")
+                            
+                            # Дополнительно: устанавливаем font-weight через прямое обращение к XML
+                            try:
+                                from docx.oxml.ns import qn
+                                from docx.oxml import OxmlElement
+                                if run._element.rPr is None:
+                                    run._element.get_or_add_rPr()
+                                # Убеждаемся, что жирность установлена
+                                b_elements = run._element.rPr.findall(qn('w:b'))
+                                if not b_elements:
+                                    b = OxmlElement('w:b')
+                                    b.set(qn('w:val'), 'true')
+                                    run._element.rPr.append(b)
+                                else:
+                                    for b in b_elements:
                                         b.set(qn('w:val'), 'true')
-                                    except:
-                                        pass
+                                print("[INFO] Дополнительная проверка жирности выполнена")
+                            except Exception as extra_bold_error:
+                                print(f"[WARNING] Дополнительная установка жирности не сработала: {extra_bold_error}")
                         else:
                             try:
                                 run.font.name = font_name

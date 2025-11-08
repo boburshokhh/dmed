@@ -51,6 +51,9 @@ body {
 #resultPinCode {
     font-family: 'Courier New', monospace;
     letter-spacing: 0.2em;
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+    line-height: 1.2;
 }
 
 /* Адаптивность */
@@ -61,5 +64,10 @@ body {
 
     #documentForm {
         padding: 1.5rem !important;
+    }
+
+    /* PIN-код на мобильных устройствах */
+    #resultPinCode {
+        font-size: 1.75rem !important;
     }
 }
