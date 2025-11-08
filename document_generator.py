@@ -167,9 +167,56 @@ def fill_docx_template(document_data, template_path=None, app=None):
                                         pass
                                 pin_code_first_occurrence['found'] = True
                             else:
-                                run.font.size = Pt(24)
-                                run.font.name = 'Calibri'
-                                run.bold = True
+                                # Большой PIN-код рядом с QR-кодом
+                                # Используем шрифты, доступные на Linux
+                                # Сначала устанавливаем размер - это критично
+                                pin_size = Pt(36)  # Увеличенный размер для лучшей видимости
+                                try:
+                                    run.font.size = pin_size
+                                except Exception as size_error:
+                                    print(f"[WARNING] Не удалось установить размер шрифта для PIN-кода: {size_error}")
+                                    # Пробуем альтернативный способ через XML
+                                    try:
+                                        from docx.oxml.ns import qn
+                                        from docx.oxml import OxmlElement
+                                        # Убеждаемся, что rPr существует
+                                        if run._element.rPr is None:
+                                            run._element.get_or_add_rPr()
+                                        # Размер в half-points (36pt = 72 half-points)
+                                        sz_value = int(pin_size.pt * 2)
+                                        sz = OxmlElement('w:sz')
+                                        sz.set(qn('w:val'), str(sz_value))
+                                        run._element.rPr.append(sz)
+                                    except Exception as xml_error:
+                                        print(f"[WARNING] Альтернативный способ установки размера не сработал: {xml_error}")
+                                        pass
+                                
+                                # Пробуем установить шрифт, который точно есть на Linux
+                                font_set = False
+                                for font_name_linux in ['Arial', 'DejaVu Sans', 'Liberation Sans', 'Calibri', 'Helvetica', 'Times New Roman']:
+                                    try:
+                                        run.font.name = font_name_linux
+                                        font_set = True
+                                        print(f"[INFO] Установлен шрифт для PIN-кода: {font_name_linux}")
+                                        break
+                                    except Exception as font_error:
+                                        continue
+                                
+                                if not font_set:
+                                    print("[WARNING] Не удалось установить ни один шрифт для PIN-кода")
+                                
+                                # Устанавливаем жирный шрифт
+                                try:
+                                    run.bold = True
+                                except Exception as bold_error:
+                                    print(f"[WARNING] Не удалось установить жирный шрифт для PIN-кода: {bold_error}")
+                                    try:
+                                        # Альтернативный способ установки жирного шрифта
+                                        from docx.oxml.ns import qn
+                                        b = run._element.rPr.get_or_add_b()
+                                        b.set(qn('w:val'), 'true')
+                                    except:
+                                        pass
                         else:
                             try:
                                 run.font.name = font_name
@@ -358,11 +405,11 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             qr_url = f"https://dmed.netlify.app/access/{document_uuid}"
         else:
             # Fallback на старый способ, если UUID не передан
-            try:
-                from flask import url_for
-                qr_url = url_for('verify_document', _external=True)
-            except RuntimeError:
-                qr_url = '/verify'
+        try:
+            from flask import url_for
+            qr_url = url_for('verify_document', _external=True)
+        except RuntimeError:
+            qr_url = '/verify'
         
         qr_img = generate_qr_code(qr_url)
         
