@@ -1,11 +1,67 @@
 # Настройка кодировки для Windows консоли
 import sys
 import io
+import os
+import warnings
+
+# Класс для фильтрации предупреждений GLib-GIO
+class FilteredStderr:
+    """Фильтрует предупреждения GLib-GIO из stderr"""
+    def __init__(self, original_stderr):
+        self.original_stderr = original_stderr
+        self.buffer = ''
+        # Сохраняем все атрибуты оригинального stderr для совместимости
+        self.encoding = getattr(original_stderr, 'encoding', None)
+        self.errors = getattr(original_stderr, 'errors', None)
+        self.line_buffering = getattr(original_stderr, 'line_buffering', False)
+        self.name = getattr(original_stderr, 'name', '<stderr>')
+        self.newlines = getattr(original_stderr, 'newlines', None)
+        self.mode = getattr(original_stderr, 'mode', 'w')
+    
+    def write(self, text):
+        # Фильтруем предупреждения GLib-GIO и UWP
+        if text and ('GLib-GIO-WARNING' in text or 'UWP app' in text or 
+                     'Unexpectedly, UWP app' in text):
+            return  # Игнорируем эти сообщения
+        # Все остальное выводим как обычно
+        self.original_stderr.write(text)
+    
+    def flush(self):
+        self.original_stderr.flush()
+    
+    def close(self):
+        # Не закрываем оригинальный stderr
+        pass
+    
+    def __getattr__(self, name):
+        return getattr(self.original_stderr, name)
+
 if sys.platform == 'win32':
+    # Подавление предупреждений GLib-GIO на Windows
+    # Эти предупреждения появляются из-за UWP приложений Windows и не влияют на работу
+    os.environ['GIO_USE_VFS'] = 'local'
+    os.environ['G_MESSAGES_DEBUG'] = ''
+    os.environ['G_MESSAGES_PREFIXED'] = '0'
+    
+    # Настройка кодировки для stdout
     if sys.stdout.encoding != 'utf-8':
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-    if sys.stderr.encoding != 'utf-8':
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    
+    # Настройка кодировки и фильтрация для stderr
+    original_stderr = sys.stderr
+    if original_stderr.encoding != 'utf-8':
+        # Сначала оборачиваем в TextIOWrapper для кодировки
+        wrapped_stderr = io.TextIOWrapper(original_stderr.buffer, encoding='utf-8', errors='replace')
+        # Потом оборачиваем в фильтр для подавления предупреждений GLib-GIO
+        sys.stderr = FilteredStderr(wrapped_stderr)
+    else:
+        # Просто оборачиваем в фильтр
+        sys.stderr = FilteredStderr(original_stderr)
+    
+    # Подавляем предупреждения через warnings (на случай, если они идут через warnings)
+    warnings.filterwarnings('ignore', message='.*GLib-GIO.*')
+    warnings.filterwarnings('ignore', message='.*UWP app.*')
+    warnings.filterwarnings('ignore', category=UserWarning, module='gi')
 
 from flask import Flask, render_template, request, jsonify, send_file, url_for
 from flask_cors import CORS
@@ -83,6 +139,17 @@ CORS(app, resources={
         "supports_credentials": True
     }
 })
+
+# Регистрируем Blueprints для API (импортируем после создания app)
+try:
+    from auth_routes import auth_bp, admin_bp
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
+    
+    from document_routes import documents_bp
+    app.register_blueprint(documents_bp)
+except ImportError as e:
+    print(f"Warning: Не удалось импортировать API routes: {e}")
 
 # Создаем директории если их нет
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -192,17 +259,19 @@ def create_document():
             
             # Проверяем доступность библиотек для более информативного сообщения
             from converter import MAMMOTH_AVAILABLE, WEASYPRINT_AVAILABLE, DOCX2PDF_AVAILABLE, WEASYPRINT_ERROR
-            if not WEASYPRINT_AVAILABLE:
+            if sys.platform != 'win32' and not WEASYPRINT_AVAILABLE:
                 error_detail += " Для Linux сервера требуется установить системные зависимости для weasyprint."
+            elif sys.platform == 'win32' and not DOCX2PDF_AVAILABLE:
+                error_detail += " Для Windows требуется установить docx2pdf и pywin32."
             
             return jsonify({
                 'success': False, 
                 'error': error_detail,
                 'details': {
                     'mammoth_available': MAMMOTH_AVAILABLE,
-                    'weasyprint_available': WEASYPRINT_AVAILABLE,
+                    'weasyprint_available': WEASYPRINT_AVAILABLE if sys.platform != 'win32' else False,
                     'docx2pdf_available': DOCX2PDF_AVAILABLE,
-                    'weasyprint_error': WEASYPRINT_ERROR if not WEASYPRINT_AVAILABLE else None
+                    'weasyprint_error': WEASYPRINT_ERROR if (sys.platform != 'win32' and not WEASYPRINT_AVAILABLE) else None
                 }
             }), 500
         

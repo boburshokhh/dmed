@@ -5,14 +5,41 @@ import uuid
 import base64
 import subprocess
 import tempfile
+import warnings
+from contextlib import redirect_stderr
+from io import StringIO
 from storage import storage_manager
+
+# Подавление предупреждений GLib-GIO (только для Linux, где используется WeasyPrint)
+if sys.platform != 'win32':
+    # Устанавливаем переменные окружения для подавления предупреждений GLib
+    os.environ['GIO_USE_VFS'] = 'local'
+    os.environ['G_MESSAGES_DEBUG'] = ''
+    # Подавляем предупреждения GLib через warnings
+    warnings.filterwarnings('ignore', category=UserWarning, module='gi')
+    warnings.filterwarnings('ignore', message='.*GLib-GIO.*')
 
 # Попытка импортировать docx2pdf
 DOCX2PDF_AVAILABLE = False
 DOCX2PDF_ERROR = None
+PYWIN32_AVAILABLE = False
+if sys.platform == 'win32':
+    # Проверяем наличие pywin32 (необходим для docx2pdf на Windows)
+    try:
+        import pythoncom
+        PYWIN32_AVAILABLE = True
+    except ImportError:
+        PYWIN32_AVAILABLE = False
+        print("[WARNING] pywin32 не установлен. Для работы docx2pdf на Windows установите: pip install pywin32")
+
 try:
     from docx2pdf import convert
-    DOCX2PDF_AVAILABLE = True
+    if sys.platform == 'win32' and not PYWIN32_AVAILABLE:
+        DOCX2PDF_AVAILABLE = False
+        DOCX2PDF_ERROR = "pywin32 не установлен. Установите: pip install pywin32"
+        print(f"[WARNING] docx2pdf требует pywin32 на Windows: {DOCX2PDF_ERROR}")
+    else:
+        DOCX2PDF_AVAILABLE = True
 except ImportError as e:
     DOCX2PDF_ERROR = str(e)
     print(f"[WARNING] docx2pdf не доступен: {e}")
@@ -20,45 +47,50 @@ except Exception as e:
     DOCX2PDF_ERROR = str(e)
     print(f"[WARNING] Ошибка при импорте docx2pdf: {e}")
 
-# Попытка импортировать mammoth и weasyprint
+# Попытка импортировать mammoth и weasyprint (только для Linux, на Windows не используется)
 MAMMOTH_AVAILABLE = False
 MAMMOTH_ERROR = None
-try:
-    import mammoth
-    MAMMOTH_AVAILABLE = True
-except ImportError as e:
-    MAMMOTH_ERROR = str(e)
-    print(f"[WARNING] mammoth не доступен: {e}")
-except Exception as e:
-    MAMMOTH_ERROR = str(e)
-    print(f"[WARNING] Ошибка при импорте mammoth: {e}")
-
 WEASYPRINT_AVAILABLE = False
 WEASYPRINT_ERROR = None
-try:
-    from weasyprint import HTML
-    WEASYPRINT_AVAILABLE = True
-    # Проверяем, что weasyprint действительно работает
+
+if sys.platform != 'win32':
+    # На Linux используем WeasyPrint как fallback
     try:
-        import tempfile
-        test_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
-        test_file.close()
-        HTML(string="<html><body>Test</body></html>").write_pdf(test_file.name)
-        if os.path.exists(test_file.name):
-            os.remove(test_file.name)
-    except Exception as test_error:
-        WEASYPRINT_AVAILABLE = False
-        WEASYPRINT_ERROR = f"weasyprint импортирован, но не работает: {test_error}"
+        import mammoth
+        MAMMOTH_AVAILABLE = True
+    except ImportError as e:
+        MAMMOTH_ERROR = str(e)
+        print(f"[WARNING] mammoth не доступен: {e}")
+    except Exception as e:
+        MAMMOTH_ERROR = str(e)
+        print(f"[WARNING] Ошибка при импорте mammoth: {e}")
+
+    try:
+        from weasyprint import HTML
+        WEASYPRINT_AVAILABLE = True
+        # Проверяем, что weasyprint действительно работает
+        try:
+            import tempfile
+            test_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+            test_file.close()
+            # Подавляем предупреждения GLib-GIO при тестировании
+            with redirect_stderr(StringIO()):
+                HTML(string="<html><body>Test</body></html>").write_pdf(test_file.name)
+            if os.path.exists(test_file.name):
+                os.remove(test_file.name)
+        except Exception as test_error:
+            WEASYPRINT_AVAILABLE = False
+            WEASYPRINT_ERROR = f"weasyprint импортирован, но не работает: {test_error}"
+            print(f"[WARNING] {WEASYPRINT_ERROR}")
+    except ImportError as e:
+        WEASYPRINT_ERROR = f"weasyprint не установлен: {e}"
         print(f"[WARNING] {WEASYPRINT_ERROR}")
-except ImportError as e:
-    WEASYPRINT_ERROR = f"weasyprint не установлен: {e}"
-    print(f"[WARNING] {WEASYPRINT_ERROR}")
-except OSError as e:
-    WEASYPRINT_ERROR = f"weasyprint требует системные библиотеки: {e}"
-    print(f"[WARNING] {WEASYPRINT_ERROR}")
-except Exception as e:
-    WEASYPRINT_ERROR = f"Ошибка при импорте weasyprint: {e}"
-    print(f"[WARNING] {WEASYPRINT_ERROR}")
+    except OSError as e:
+        WEASYPRINT_ERROR = f"weasyprint требует системные библиотеки: {e}"
+        print(f"[WARNING] {WEASYPRINT_ERROR}")
+    except Exception as e:
+        WEASYPRINT_ERROR = f"Ошибка при импорте weasyprint: {e}"
+        print(f"[WARNING] {WEASYPRINT_ERROR}")
 
 # Проверка доступности LibreOffice
 LIBREOFFICE_AVAILABLE = False
@@ -116,7 +148,55 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
             upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads/documents') if app else 'uploads/documents'
             output_path = os.path.join(upload_folder, f"{document_uuid}.pdf")
         
-        # Метод 1: LibreOffice (лучший для Linux)
+        # Метод 1: docx2pdf (лучший для Windows, приоритет на Windows)
+        if sys.platform == 'win32' and DOCX2PDF_AVAILABLE:
+            try:
+                print(f"[INFO] Используем docx2pdf для конвертации (Windows)...")
+                if sys.platform == 'win32':
+                    try:
+                        import pythoncom
+                        try:
+                            pythoncom.CoInitialize()
+                        except pythoncom.com_error:
+                            pass
+                    except ImportError:
+                        print("[WARNING] pywin32 не установлен")
+                
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                convert(docx_path, output_path)
+                
+                if os.path.exists(output_path):
+                    file_size = os.path.getsize(output_path)
+                    print(f"[OK] DOCX успешно конвертирован в PDF через docx2pdf: {output_path}, размер: {file_size} байт")
+                    with open(output_path, 'rb') as f:
+                        pdf_data = f.read()
+                    
+                    pdf_filename = os.path.basename(output_path)
+                    stored_path = storage_manager.save_file(pdf_data, pdf_filename, 'application/pdf')
+                    
+                    if storage_manager.use_minio and os.path.exists(output_path):
+                        try:
+                            os.remove(output_path)
+                        except:
+                            pass
+                    
+                    if temp_docx_path and os.path.exists(temp_docx_path):
+                        try:
+                            os.remove(temp_docx_path)
+                        except:
+                            pass
+                    
+                    return stored_path
+                else:
+                    raise Exception(f"PDF файл не был создан: {output_path}")
+            except Exception as e:
+                error_msg = f"Ошибка при конвертации через docx2pdf: {e}"
+                print(f"[ERROR] {error_msg}")
+                import traceback
+                print(traceback.format_exc())
+                print("Пробуем альтернативный метод...")
+        
+        # Метод 2: LibreOffice (лучший для Linux)
         if LIBREOFFICE_AVAILABLE:
             try:
                 print(f"[INFO] Используем LibreOffice для конвертации...")
@@ -186,8 +266,8 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
                 print(traceback.format_exc())
                 print("Пробуем альтернативный метод...")
         
-        # Метод 2: mammoth + weasyprint
-        if MAMMOTH_AVAILABLE and WEASYPRINT_AVAILABLE:
+        # Метод 2: mammoth + weasyprint (только для Linux, на Windows не используется)
+        if sys.platform != 'win32' and MAMMOTH_AVAILABLE and WEASYPRINT_AVAILABLE:
             try:
                 print(f"[INFO] Используем метод mammoth+weasyprint для конвертации...")
                 def convert_image(image):
@@ -255,7 +335,14 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
                 
                 print(f"[INFO] Конвертируем HTML в PDF через weasyprint...")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                HTML(string=html_with_styles).write_pdf(output_path)
+                # Подавляем предупреждения GLib-GIO
+                stderr_buffer = StringIO()
+                with redirect_stderr(stderr_buffer):
+                    HTML(string=html_with_styles).write_pdf(output_path)
+                # Проверяем, были ли реальные ошибки (не предупреждения)
+                stderr_content = stderr_buffer.getvalue()
+                if stderr_content and 'error' in stderr_content.lower() and 'GLib-GIO-WARNING' not in stderr_content:
+                    print(f"[WARNING] WeasyPrint stderr: {stderr_content[:200]}")
                 
                 if os.path.exists(output_path):
                     file_size = os.path.getsize(output_path)
@@ -288,57 +375,6 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
                 print(traceback.format_exc())
                 print("Используем альтернативный метод...")
         
-        # Метод 3: docx2pdf (только Windows)
-        if DOCX2PDF_AVAILABLE:
-            try:
-                print(f"[INFO] Пытаемся конвертировать через docx2pdf...")
-                if sys.platform == 'win32':
-                    try:
-                        import pythoncom
-                        try:
-                            pythoncom.CoInitialize()
-                        except pythoncom.com_error:
-                            pass
-                    except ImportError:
-                        print("[WARNING] pywin32 не установлен")
-                else:
-                    print(f"[WARNING] docx2pdf требует Windows. Текущая ОС: {sys.platform}")
-                    raise Exception(f"docx2pdf не работает на {sys.platform}")
-                
-                os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                convert(docx_path, output_path)
-                
-                if os.path.exists(output_path):
-                    file_size = os.path.getsize(output_path)
-                    print(f"[OK] DOCX успешно конвертирован в PDF через docx2pdf: {output_path}, размер: {file_size} байт")
-                    with open(output_path, 'rb') as f:
-                        pdf_data = f.read()
-                    
-                    pdf_filename = os.path.basename(output_path)
-                    stored_path = storage_manager.save_file(pdf_data, pdf_filename, 'application/pdf')
-                    
-                    if storage_manager.use_minio and os.path.exists(output_path):
-                        try:
-                            os.remove(output_path)
-                        except:
-                            pass
-                    
-                    if temp_docx_path and os.path.exists(temp_docx_path):
-                        try:
-                            os.remove(temp_docx_path)
-                        except:
-                            pass
-                    
-                    return stored_path
-                else:
-                    raise Exception(f"PDF файл не был создан: {output_path}")
-            except Exception as e:
-                error_msg = f"Ошибка при конвертации через docx2pdf: {e}"
-                print(f"[ERROR] {error_msg}")
-                import traceback
-                print(traceback.format_exc())
-                print("Используем альтернативный метод...")
-        
         # Если ни один метод не сработал
         error_details = []
         error_details.append(f"LIBREOFFICE_AVAILABLE={LIBREOFFICE_AVAILABLE}")
@@ -359,9 +395,16 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
         print(f"[ERROR] {error_msg}")
         
         # Предлагаем решение
-        if not LIBREOFFICE_AVAILABLE:
-            print("[SOLUTION] Для Linux сервера установите LibreOffice:")
-            print("  sudo apt-get install -y libreoffice libreoffice-writer")
+        if sys.platform == 'win32':
+            if not DOCX2PDF_AVAILABLE:
+                print("[SOLUTION] Для Windows установите docx2pdf и pywin32:")
+                print("  pip install docx2pdf pywin32")
+                if DOCX2PDF_ERROR:
+                    print(f"  Ошибка: {DOCX2PDF_ERROR}")
+        else:
+            if not LIBREOFFICE_AVAILABLE:
+                print("[SOLUTION] Для Linux сервера установите LibreOffice:")
+                print("  sudo apt-get install -y libreoffice libreoffice-writer")
         
         if temp_docx_path and os.path.exists(temp_docx_path):
             try:

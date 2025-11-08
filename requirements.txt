@@ -7,9 +7,11 @@ Pillow==10.1.0
 python-dotenv==1.0.0
 psycopg2-binary==2.9.9
 python-docx==1.1.0
-docx2pdf==0.1.8
-mammoth>=1.6.0
-weasyprint>=60.2
+docx2pdf==0.1.8  # Для Windows (требует pywin32)
+mammoth>=1.6.0  # Для Linux (используется с weasyprint)
+weasyprint>=60.2  # Для Linux (fallback метод конвертации)
 minio>=7.2.0
 cairosvg>=2.7.0
+bcrypt>=4.0.0
+PyJWT>=2.8.0
 # pywin32 только для Windows (установите вручную на Windows: pip install pywin32)
