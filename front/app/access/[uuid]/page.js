@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useParams } from 'next/navigation'
 import RU from 'country-flag-icons/react/3x2/RU'
 import UZ from 'country-flag-icons/react/3x2/UZ'
 import GB from 'country-flag-icons/react/3x2/GB'
@@ -30,15 +31,54 @@ const translations = {
 }
 
 export default function Home() {
+  const params = useParams()
+  const uuid = params?.uuid
+  
   const [language, setLanguage] = useState('ru')
   const [pin, setPin] = useState(['', '', '', ''])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showLanguageMenu, setShowLanguageMenu] = useState(false)
+  const [documentInfo, setDocumentInfo] = useState(null)
+  const [loadingDocument, setLoadingDocument] = useState(false)
   const inputRefs = useRef([])
   const languageMenuRef = useRef(null)
 
   const t = translations[language]
+
+  // Загружаем информацию о документе по UUID при монтировании компонента
+  useEffect(() => {
+    if (uuid) {
+      const fetchDocumentInfo = async () => {
+        setLoadingDocument(true)
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+          const response = await fetch(`${apiUrl}/api/access/${uuid}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          })
+
+          const result = await response.json()
+
+          if (result.success) {
+            setDocumentInfo(result.document)
+          } else {
+            // Если документ не найден, не показываем ошибку - пользователь может ввести PIN
+            console.log('Документ не найден по UUID:', result.error)
+          }
+        } catch (error) {
+          console.error('Ошибка при загрузке информации о документе:', error)
+          // Не показываем ошибку пользователю - страница должна работать и без этого
+        } finally {
+          setLoadingDocument(false)
+        }
+      }
+
+      fetchDocumentInfo()
+    }
+  }, [uuid])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -93,9 +133,16 @@ export default function Home() {
     setError('')
 
     try {
-      // Используем полный URL для бэкенда или относительный путь
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
-      const response = await fetch(`${apiUrl}/verify-pin`, {
+      
+      // Если есть UUID, используем endpoint с проверкой по UUID
+      // Иначе используем обычный endpoint для проверки PIN-кода
+      let endpoint = '/verify-pin'
+      if (uuid) {
+        endpoint = `/api/access/${uuid}/verify-pin`
+      }
+      
+      const response = await fetch(`${apiUrl}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,12 +154,8 @@ export default function Home() {
 
       if (result.success) {
         // Перенаправляем на страницу просмотра документа по UUID
-        const documentUuid = result.document.uuid
-        if (documentUuid) {
-          window.location.href = `/el-docs/${documentUuid}`
-        } else {
-          setError('UUID документа не найден')
-        }
+        const documentUuid = result.document.uuid || uuid
+        window.location.href = `/el-docs/${documentUuid}`
       } else {
         setError(result.error || t.error)
       }
@@ -265,4 +308,5 @@ export default function Home() {
     </div>
   )
 }
+
 

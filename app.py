@@ -8,6 +8,7 @@ if sys.platform == 'win32':
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 from flask import Flask, render_template, request, jsonify, send_file, url_for
+from flask_cors import CORS
 from datetime import datetime
 from io import BytesIO
 import os
@@ -23,6 +24,65 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['TEMPLATE_FOLDER'] = 'templates/docx_templates'
+
+# Настройка CORS
+CORS(app, resources={
+    r"/api/*": {
+        "origins": [
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001",
+            "https://dmed.netlify.app",
+            "https://*.netlify.app"
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "Range"],
+        "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length"],
+        "supports_credentials": True
+    },
+    r"/verify-pin": {
+        "origins": [
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001",
+            "https://dmed.netlify.app",
+            "https://*.netlify.app"
+        ],
+        "methods": ["POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"],
+        "supports_credentials": True
+    },
+    r"/download/*": {
+        "origins": [
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001",
+            "https://dmed.netlify.app",
+            "https://*.netlify.app"
+        ],
+        "methods": ["GET", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "Range"],
+        "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
+        "supports_credentials": True
+    },
+    r"/download-by-uuid/*": {
+        "origins": [
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001",
+            "https://dmed.netlify.app",
+            "https://*.netlify.app"
+        ],
+        "methods": ["GET", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization", "Range"],
+        "expose_headers": ["Content-Range", "Accept-Ranges", "Content-Length", "Content-Disposition"],
+        "supports_credentials": True
+    }
+})
 
 # Создаем директории если их нет
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -476,6 +536,170 @@ def verify_pin():
         
         if not document:
             return jsonify({'success': False, 'error': 'Документ не найден'}), 404
+        
+        # Форматируем дату
+        issue_date = document.get('issue_date')
+        if issue_date:
+            if isinstance(issue_date, str):
+                try:
+                    dt = datetime.fromisoformat(issue_date.replace('Z', '+00:00'))
+                    issue_date_str = dt.strftime("%d.%m.%Y %H:%M")
+                except:
+                    try:
+                        dt = datetime.strptime(issue_date[:16], "%Y-%m-%dT%H:%M")
+                        issue_date_str = dt.strftime("%d.%m.%Y %H:%M")
+                    except:
+                        issue_date_str = issue_date[:10] if len(issue_date) >= 10 else issue_date
+            else:
+                issue_date_str = issue_date.strftime("%d.%m.%Y %H:%M")
+        else:
+            issue_date_str = ''
+        
+        # Форматируем даты освобождения
+        days_off_from = document.get('days_off_from')
+        days_off_to = document.get('days_off_to')
+        days_off_str = ''
+        if days_off_from and days_off_to:
+            try:
+                from_dt = datetime.fromisoformat(days_off_from.replace('Z', '+00:00')) if isinstance(days_off_from, str) else days_off_from
+                to_dt = datetime.fromisoformat(days_off_to.replace('Z', '+00:00')) if isinstance(days_off_to, str) else days_off_to
+                days_off_str = f"{from_dt.strftime('%d.%m.%Y')} - {to_dt.strftime('%d.%m.%Y')}"
+            except:
+                days_off_str = f"{days_off_from} - {days_off_to}"
+        elif days_off_from:
+            try:
+                from_dt = datetime.fromisoformat(days_off_from.replace('Z', '+00:00')) if isinstance(days_off_from, str) else days_off_from
+                days_off_str = from_dt.strftime('%d.%m.%Y')
+            except:
+                days_off_str = str(days_off_from)
+        
+        return jsonify({
+            'success': True,
+            'document': {
+                'id': document.get('id'),
+                'doc_number': document.get('doc_number'),
+                'patient_name': document.get('patient_name'),
+                'gender': document.get('gender'),
+                'age': document.get('age'),
+                'jshshir': document.get('jshshir'),
+                'address': document.get('address'),
+                'attached_medical_institution': document.get('attached_medical_institution'),
+                'diagnosis': document.get('diagnosis'),
+                'diagnosis_icd10_code': document.get('diagnosis_icd10_code'),
+                'final_diagnosis': document.get('final_diagnosis'),
+                'final_diagnosis_icd10_code': document.get('final_diagnosis_icd10_code'),
+                'organization': document.get('organization'),
+                'issue_date': issue_date_str,
+                'doctor_name': document.get('doctor_name'),
+                'doctor_position': document.get('doctor_position'),
+                'department_head_name': document.get('department_head_name'),
+                'days_off_period': days_off_str,
+                'uuid': document.get('uuid', ''),
+                'pdf_url': url_for('download_document', doc_id=document.get('id'), _external=True),
+                'pdf_url_by_uuid': url_for('download_by_uuid', uuid=document.get('uuid', ''), _external=True) if document.get('uuid') else None
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/access/<uuid>', methods=['GET'])
+def get_document_by_uuid(uuid):
+    """Получение информации о документе по UUID"""
+    try:
+        document = db_select('documents', 'uuid = %s', [uuid], fetch_one=True)
+        
+        if not document:
+            return jsonify({'success': False, 'error': 'Документ не найден'}), 404
+        
+        # Форматируем дату
+        issue_date = document.get('issue_date')
+        if issue_date:
+            if isinstance(issue_date, str):
+                try:
+                    dt = datetime.fromisoformat(issue_date.replace('Z', '+00:00'))
+                    issue_date_str = dt.strftime("%d.%m.%Y %H:%M")
+                except:
+                    try:
+                        dt = datetime.strptime(issue_date[:16], "%Y-%m-%dT%H:%M")
+                        issue_date_str = dt.strftime("%d.%m.%Y %H:%M")
+                    except:
+                        issue_date_str = issue_date[:10] if len(issue_date) >= 10 else issue_date
+            else:
+                issue_date_str = issue_date.strftime("%d.%m.%Y %H:%M")
+        else:
+            issue_date_str = ''
+        
+        # Форматируем даты освобождения
+        days_off_from = document.get('days_off_from')
+        days_off_to = document.get('days_off_to')
+        days_off_str = ''
+        if days_off_from and days_off_to:
+            try:
+                from_dt = datetime.fromisoformat(days_off_from.replace('Z', '+00:00')) if isinstance(days_off_from, str) else days_off_from
+                to_dt = datetime.fromisoformat(days_off_to.replace('Z', '+00:00')) if isinstance(days_off_to, str) else days_off_to
+                days_off_str = f"{from_dt.strftime('%d.%m.%Y')} - {to_dt.strftime('%d.%m.%Y')}"
+            except:
+                days_off_str = f"{days_off_from} - {days_off_to}"
+        elif days_off_from:
+            try:
+                from_dt = datetime.fromisoformat(days_off_from.replace('Z', '+00:00')) if isinstance(days_off_from, str) else days_off_from
+                days_off_str = from_dt.strftime('%d.%m.%Y')
+            except:
+                days_off_str = str(days_off_from)
+        
+        return jsonify({
+            'success': True,
+            'document': {
+                'id': document.get('id'),
+                'doc_number': document.get('doc_number'),
+                'patient_name': document.get('patient_name'),
+                'gender': document.get('gender'),
+                'age': document.get('age'),
+                'jshshir': document.get('jshshir'),
+                'address': document.get('address'),
+                'attached_medical_institution': document.get('attached_medical_institution'),
+                'diagnosis': document.get('diagnosis'),
+                'diagnosis_icd10_code': document.get('diagnosis_icd10_code'),
+                'final_diagnosis': document.get('final_diagnosis'),
+                'final_diagnosis_icd10_code': document.get('final_diagnosis_icd10_code'),
+                'organization': document.get('organization'),
+                'issue_date': issue_date_str,
+                'doctor_name': document.get('doctor_name'),
+                'doctor_position': document.get('doctor_position'),
+                'department_head_name': document.get('department_head_name'),
+                'days_off_period': days_off_str,
+                'uuid': document.get('uuid', ''),
+                'pin_code': document.get('pin_code', ''),
+                'pdf_url': url_for('download_document', doc_id=document.get('id'), _external=True),
+                'pdf_url_by_uuid': url_for('download_by_uuid', uuid=document.get('uuid', ''), _external=True) if document.get('uuid') else None
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/access/<uuid>/verify-pin', methods=['POST'])
+def verify_pin_by_uuid(uuid):
+    """Проверка PIN-кода для документа по UUID"""
+    try:
+        data = request.get_json()
+        pin_code = data.get('pin_code')
+        
+        if not pin_code:
+            return jsonify({'success': False, 'error': 'PIN-код не указан'}), 400
+        
+        # Сначала проверяем, существует ли документ с таким UUID
+        document = db_select('documents', 'uuid = %s', [uuid], fetch_one=True)
+        
+        if not document:
+            return jsonify({'success': False, 'error': 'Документ не найден'}), 404
+        
+        # Проверяем, соответствует ли PIN-код этому документу
+        if document.get('pin_code') != pin_code:
+            return jsonify({'success': False, 'error': 'Неверный PIN-код'}), 401
         
         # Форматируем дату
         issue_date = document.get('issue_date')

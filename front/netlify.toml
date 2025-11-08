@@ -1,0 +1,14 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# Переменные окружения настраиваются в Netlify Dashboard
+# Settings > Environment variables
+# Добавьте: NEXT_PUBLIC_API_URL = https://your-backend-url.com
+
