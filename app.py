@@ -744,9 +744,23 @@ def fill_docx_template(document_data, template_path=None):
             print(f"Документ успешно сохранен: {output_path}")
             
             if os.path.exists(output_path):
-                # DOCX используется только как временный файл для конвертации в PDF
-                # Не сохраняем его в хранилище, только возвращаем путь для конвертации
-                return output_path
+                # Читаем DOCX файл и сохраняем в хранилище (MinIO или локально)
+                with open(output_path, 'rb') as f:
+                    docx_data = f.read()
+                
+                # Сохраняем в хранилище
+                docx_filename = f"{document_uuid}.docx"
+                stored_path = storage_manager.save_file(docx_data, docx_filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                
+                # Если используется MinIO, удаляем локальный файл
+                if storage_manager.use_minio and os.path.exists(output_path):
+                    try:
+                        os.remove(output_path)
+                    except:
+                        pass
+                
+                # Возвращаем путь (для MinIO это object_name, для локального - filepath)
+                return stored_path
             else:
                 print(f"ОШИБКА: Файл не был создан: {output_path}")
                 return None
@@ -1063,12 +1077,13 @@ def create_document():
         # Конвертируем DOCX в PDF сразу после создания
         pdf_path = convert_docx_to_pdf_from_docx(docx_path, created_document)
         
-        # Удаляем временный DOCX файл после конвертации (DOCX не хранится)
+        # Удаляем временный DOCX файл после конвертации
         if docx_path and os.path.exists(docx_path):
             try:
                 os.remove(docx_path)
-            except:
-                pass
+                print(f"[OK] Временный DOCX файл удален: {docx_path}")
+            except Exception as e:
+                print(f"[WARNING] Не удалось удалить временный DOCX файл: {e}")
         
         # Если конвертация не удалась, используем базовый метод генерации PDF
         if not pdf_path or not storage_manager.file_exists(pdf_path):
@@ -1119,8 +1134,10 @@ def download_document(doc_id):
             file_data = storage_manager.get_file(pdf_path)
             if file_data:
                 # Возвращаем файл из хранилища
+                file_stream = BytesIO(file_data)
+                file_stream.seek(0)
                 return send_file(
-                    BytesIO(file_data),
+                    file_stream,
                     as_attachment=True,
                     download_name=filename,
                     mimetype='application/pdf'
@@ -1131,7 +1148,8 @@ def download_document(doc_id):
             return send_file(
                 pdf_path,
                 as_attachment=True,
-                download_name=filename
+                download_name=filename,
+                mimetype='application/pdf'
             )
         
         # Если PDF не существует, генерируем его заново
@@ -1142,8 +1160,10 @@ def download_document(doc_id):
             # Получаем файл из хранилища
             file_data = storage_manager.get_file(pdf_path)
             if file_data:
+                file_stream = BytesIO(file_data)
+                file_stream.seek(0)
                 return send_file(
-                    BytesIO(file_data),
+                    file_stream,
                     as_attachment=True,
                     download_name=filename,
                     mimetype='application/pdf'
@@ -1153,7 +1173,8 @@ def download_document(doc_id):
                 return send_file(
                     pdf_path,
                     as_attachment=True,
-                    download_name=filename
+                    download_name=filename,
+                    mimetype='application/pdf'
                 )
         return "PDF файл не найден", 404
     except Exception as e:
@@ -1177,8 +1198,10 @@ def download_by_uuid(uuid):
             file_data = storage_manager.get_file(pdf_path)
             if file_data:
                 # Возвращаем файл из хранилища
+                file_stream = BytesIO(file_data)
+                file_stream.seek(0)
                 return send_file(
-                    BytesIO(file_data),
+                    file_stream,
                     as_attachment=True,
                     download_name=filename,
                     mimetype='application/pdf'
@@ -1189,7 +1212,8 @@ def download_by_uuid(uuid):
             return send_file(
                 pdf_path,
                 as_attachment=True,
-                download_name=filename
+                download_name=filename,
+                mimetype='application/pdf'
             )
         
         # Если PDF не существует, генерируем его заново
@@ -1200,8 +1224,10 @@ def download_by_uuid(uuid):
             # Получаем файл из хранилища
             file_data = storage_manager.get_file(pdf_path)
             if file_data:
+                file_stream = BytesIO(file_data)
+                file_stream.seek(0)
                 return send_file(
-                    BytesIO(file_data),
+                    file_stream,
                     as_attachment=True,
                     download_name=filename,
                     mimetype='application/pdf'
@@ -1211,7 +1237,8 @@ def download_by_uuid(uuid):
                 return send_file(
                     pdf_path,
                     as_attachment=True,
-                    download_name=filename
+                    download_name=filename,
+                    mimetype='application/pdf'
                 )
         return "PDF файл не найден", 404
     except Exception as e:
@@ -1220,18 +1247,29 @@ def download_by_uuid(uuid):
 
 @app.route('/download-docx/<int:doc_id>')
 def download_docx(doc_id):
-    """Скачивание DOCX документа (генерируется на лету, не хранится)"""
+    """Скачивание DOCX документа"""
     try:
         document = db_select('documents', 'id = %s', [doc_id], fetch_one=True)
         
         if not document:
             return "Документ не найден", 404
         
+        docx_path = document.get('docx_path')
         doc_number = document.get('doc_number', 'unknown')
         filename = f'spravka_{doc_number}.docx'
         
-        # Генерируем DOCX на лету только для скачивания (не сохраняем в хранилище)
-        docx_path = fill_docx_template(document)
+        # Пытаемся получить файл из хранилища
+        if docx_path:
+            file_data = storage_manager.get_file(docx_path)
+            if file_data:
+                return send_file(
+                    BytesIO(file_data),
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                )
+        
+        # Если файл не найден в хранилище, проверяем локально (для обратной совместимости)
         if docx_path and os.path.exists(docx_path):
             return send_file(
                 docx_path,
@@ -1239,19 +1277,52 @@ def download_docx(doc_id):
                 download_name=filename,
                 mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             )
-        return "DOCX файл не найден", 404
+        
+            # Если DOCX не существует, генерируем его заново
+            docx_path = fill_docx_template(document)
+            if docx_path:
+                # Обновляем путь в БД
+                db_update('documents', {'docx_path': docx_path}, 'id = %s', [doc_id])
+            # Получаем файл из хранилища
+            file_data = storage_manager.get_file(docx_path)
+            if file_data:
+                return send_file(
+                    BytesIO(file_data),
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                )
+            # Fallback на локальный файл
+            if os.path.exists(docx_path):
+                return send_file(
+                    docx_path,
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                )
+            return "DOCX файл не найден", 404
     except Exception as e:
         return f"Ошибка: {str(e)}", 500
 
 
 def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None):
     """Конвертирует DOCX файл в PDF, читая содержимое DOCX и создавая PDF"""
-    # DOCX файл уже должен быть локальным (временным файлом)
-    # Не пытаемся получать его из хранилища, так как DOCX не хранится
+    # Получаем DOCX файл из хранилища или локально
+    docx_data = None
+    temp_docx_path = None
+    
+    if docx_path:
+        # Пытаемся получить из хранилища
+        docx_data = storage_manager.get_file(docx_path)
+        if docx_data:
+            # Сохраняем во временный файл для конвертации
+            temp_docx_path = os.path.join(app.config['UPLOAD_FOLDER'], f'temp_{uuid.uuid4()}.docx')
+            with open(temp_docx_path, 'wb') as f:
+                f.write(docx_data)
+            docx_path = temp_docx_path
+    
     if not docx_path or not os.path.exists(docx_path):
         return None
-    
-    temp_docx_path = None
     
     try:
         if output_path is None:
@@ -1823,28 +1894,17 @@ def list_files():
         # Получаем список файлов из хранилища
         files = storage_manager.list_files(prefix=search_prefix, recursive=True)
         
-        # Фильтруем по типу файла если указан (только PDF, DOCX не хранится)
+        # Фильтруем по типу файла если указан
         if file_type:
-            if file_type.lower() != 'pdf':
-                # DOCX не хранится, возвращаем пустой список
-                return jsonify({
-                    'success': True,
-                    'count': 0,
-                    'files': [],
-                    'storage_type': 'minio' if storage_manager.use_minio else 'local'
-                })
-            extension = '.pdf'
+            extension = f'.{file_type.lower()}'
             files = [f for f in files if f['name'].lower().endswith(extension)]
-        else:
-            # Если тип не указан, показываем только PDF
-            files = [f for f in files if f['name'].lower().endswith('.pdf')]
         
         # Обогащаем файлы информацией из БД
         enriched_files = []
         for file_info in files:
-            # Извлекаем UUID из имени файла (только PDF)
+            # Извлекаем UUID из имени файла (убираем расширение)
             filename = file_info['name']
-            uuid_from_filename = filename.replace('.pdf', '')
+            uuid_from_filename = filename.replace('.pdf', '').replace('.docx', '')
             
             # Ищем документ в БД по UUID
             document = None
@@ -1900,8 +1960,10 @@ def download_file_by_name(filename):
         elif filename.lower().endswith('.doc'):
             content_type = 'application/msword'
         
+        file_stream = BytesIO(file_data)
+        file_stream.seek(0)
         return send_file(
-            BytesIO(file_data),
+            file_stream,
             as_attachment=True,
             download_name=filename,
             mimetype=content_type
