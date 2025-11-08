@@ -16,7 +16,8 @@ DB_SSLMODE = os.getenv('DB_SSLMODE', 'prefer')
 
 # Flask конфигурация
 SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-here-change-in-production')
-UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'static/generated_documents')
+# Храним документы вне папки static для безопасности
+UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads/documents')
 
 # Настройки приложения
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
@@ -27,4 +28,12 @@ DOC_NUMBER_FORMAT = os.getenv('DOC_NUMBER_FORMAT', 'date')  # Формат: 'dat
 
 # Настройки форматирования DOCX
 DOCX_FONT_NAME = os.getenv('DOCX_FONT_NAME', 'Times New Roman')  # Шрифт для переменных в DOCX шаблоне
+
+# MinIO конфигурация
+MINIO_ENABLED = os.getenv('MINIO_ENABLED', 'True').lower() == 'true'
+MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'localhost:9000')
+MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'minioadmin')
+MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY', 'minioadmin')
+MINIO_SECURE = os.getenv('MINIO_SECURE', 'False').lower() == 'true'
+MINIO_BUCKET_NAME = os.getenv('MINIO_BUCKET_NAME', 'dmed-documents')
 

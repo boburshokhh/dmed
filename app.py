@@ -1,3 +1,13 @@
+# Настройка кодировки для Windows консоли
+import sys
+import io
+if sys.platform == 'win32':
+    # Устанавливаем UTF-8 для stdout/stderr в Windows
+    if sys.stdout.encoding != 'utf-8':
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    if sys.stderr.encoding != 'utf-8':
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 from flask import Flask, render_template, request, jsonify, send_file, url_for
 from datetime import datetime
 import qrcode
@@ -7,6 +17,7 @@ import random
 import string
 import re
 import uuid
+import base64
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
@@ -14,6 +25,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from psycopg2 import pool
 from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DB_SSLMODE, SECRET_KEY, UPLOAD_FOLDER, DOC_NUMBER_PREFIX, DOC_NUMBER_FORMAT, DOCX_FONT_NAME
+from storage import storage_manager
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -25,6 +37,21 @@ try:
 except ImportError:
     DOCX2PDF_AVAILABLE = False
     print("Предупреждение: docx2pdf не доступен. Конвертация DOCX->PDF будет использовать альтернативный метод.")
+
+# Попытка импортировать mammoth и weasyprint для конвертации DOCX->PDF без LibreOffice
+try:
+    import mammoth
+    MAMMOTH_AVAILABLE = True
+except ImportError:
+    MAMMOTH_AVAILABLE = False
+    print("Предупреждение: mammoth не доступен. Установите: pip install mammoth")
+
+try:
+    from weasyprint import HTML
+    WEASYPRINT_AVAILABLE = True
+except (ImportError, OSError) as e:
+    WEASYPRINT_AVAILABLE = False
+    print(f"Предупреждение: weasyprint не доступен ({type(e).__name__}). Будет использован альтернативный метод конвертации.")
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
@@ -251,9 +278,12 @@ def generate_pdf_document(document_data):
     # Создаем директорию если её нет
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
-    # Путь к файлу
-    doc_number = document_data.get('doc_number', 'unknown')
-    filename = f"document_{doc_number}.pdf"
+    # Путь к файлу - используем UUID
+    document_uuid = document_data.get('uuid', '')
+    if not document_uuid:
+        # Если UUID нет, генерируем новый
+        document_uuid = str(uuid.uuid4())
+    filename = f"{document_uuid}.pdf"
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     
     # Создаем PDF
@@ -372,8 +402,13 @@ def generate_pdf_document(document_data):
         y_position -= 20
     
     
-    # Генерируем QR-код
-    qr_url = url_for('verify_document', _external=True)
+    # Генерируем QR-код с UUID для прямого доступа к документу
+    document_uuid = document_data.get('uuid', '')
+    if document_uuid:
+        # QR-код ведет на страницу верификации с UUID
+        qr_url = url_for('verify_by_uuid', uuid=document_uuid, _external=True)
+    else:
+        qr_url = url_for('verify_document', _external=True)
     qr_img = generate_qr_code(qr_url)
     
     # Сохраняем QR-код во временный файл
@@ -420,7 +455,22 @@ def generate_pdf_document(document_data):
     if os.path.exists(qr_temp_path):
         os.remove(qr_temp_path)
     
-    return filepath
+    # Читаем PDF файл и сохраняем в хранилище (MinIO или локально)
+    with open(filepath, 'rb') as f:
+        pdf_data = f.read()
+    
+    # Сохраняем в хранилище
+    stored_path = storage_manager.save_file(pdf_data, filename, 'application/pdf')
+    
+    # Если используется MinIO, удаляем локальный файл
+    if storage_manager.use_minio and os.path.exists(filepath):
+        try:
+            os.remove(filepath)
+        except:
+            pass
+    
+    # Возвращаем путь (для MinIO это object_name, для локального - filepath)
+    return stored_path
 
 
 def fill_docx_template(document_data, template_path=None):
@@ -681,10 +731,12 @@ def fill_docx_template(document_data, template_path=None):
             os.makedirs(upload_folder, exist_ok=True)
             print(f"Создана папка для документов: {upload_folder}")
         
-        doc_number = document_data.get('doc_number', 'unknown')
-        # Очищаем номер документа от символов, которые могут быть проблемой в имени файла
-        safe_doc_number = doc_number.replace('№', '').replace(' ', '_').strip()
-        output_path = os.path.join(upload_folder, f"document_{safe_doc_number}.docx")
+        # Используем UUID для имени файла
+        document_uuid = document_data.get('uuid', '')
+        if not document_uuid:
+            # Если UUID нет, генерируем новый
+            document_uuid = str(uuid.uuid4())
+        output_path = os.path.join(upload_folder, f"{document_uuid}.docx")
         
         print(f"Сохраняем документ: {output_path}")
         try:
@@ -692,7 +744,23 @@ def fill_docx_template(document_data, template_path=None):
             print(f"Документ успешно сохранен: {output_path}")
             
             if os.path.exists(output_path):
-                return output_path
+                # Читаем DOCX файл и сохраняем в хранилище (MinIO или локально)
+                with open(output_path, 'rb') as f:
+                    docx_data = f.read()
+                
+                # Сохраняем в хранилище
+                docx_filename = f"{document_uuid}.docx"
+                stored_path = storage_manager.save_file(docx_data, docx_filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+                
+                # Если используется MinIO, удаляем локальный файл
+                if storage_manager.use_minio and os.path.exists(output_path):
+                    try:
+                        os.remove(output_path)
+                    except:
+                        pass
+                
+                # Возвращаем путь (для MinIO это object_name, для локального - filepath)
+                return stored_path
             else:
                 print(f"ОШИБКА: Файл не был создан: {output_path}")
                 return None
@@ -996,11 +1064,8 @@ def create_document():
             print(traceback.format_exc())
             return jsonify({'success': False, 'error': f'Ошибка создания документа: {str(db_error)}'}), 500
         
-        # Генерируем DOCX документ из шаблона
+        # Генерируем DOCX документ из шаблона (временный, для конвертации)
         docx_path = fill_docx_template(created_document)
-        
-        # Генерируем PDF (опционально, можно использовать DOCX или PDF)
-        pdf_path = generate_pdf_document(created_document)
         
         if not docx_path:
             error_detail = "Не удалось создать DOCX документ. Проверьте логи сервера."
@@ -1009,27 +1074,39 @@ def create_document():
             print(traceback.format_exc())
             return jsonify({'success': False, 'error': error_detail}), 500
         
-        # Обновляем пути в базе данных
-        update_data = {}
-        if docx_path:
-            update_data['docx_path'] = docx_path
-        if pdf_path:
-            update_data['pdf_path'] = pdf_path
+        # Конвертируем DOCX в PDF сразу после создания
+        pdf_path = convert_docx_to_pdf_from_docx(docx_path, created_document)
         
-        if update_data:
+        # Удаляем временный DOCX файл после конвертации
+        if docx_path and os.path.exists(docx_path):
             try:
-                db_update('documents', update_data, 'id = %s', [document_id])
-            except Exception as db_error:
-                print(f"Предупреждение: Не удалось обновить пути в БД: {db_error}")
+                os.remove(docx_path)
+                print(f"[OK] Временный DOCX файл удален: {docx_path}")
+            except Exception as e:
+                print(f"[WARNING] Не удалось удалить временный DOCX файл: {e}")
+        
+        # Если конвертация не удалась, используем базовый метод генерации PDF
+        if not pdf_path or not storage_manager.file_exists(pdf_path):
+            print("[WARNING] Конвертация DOCX->PDF не удалась, используем базовый метод")
+            pdf_path = generate_pdf_document(created_document)
+        
+        if not pdf_path:
+            error_detail = "Не удалось создать PDF документ. Проверьте логи сервера."
+            print(f"ОШИБКА: {error_detail}")
+            return jsonify({'success': False, 'error': error_detail}), 500
+        
+        # Обновляем путь к PDF в базе данных
+        try:
+            db_update('documents', {'pdf_path': pdf_path}, 'id = %s', [document_id])
+        except Exception as db_error:
+            print(f"Предупреждение: Не удалось обновить путь к PDF в БД: {db_error}")
         
         return jsonify({
             'success': True,
             'document_id': document_id,
             'doc_number': doc_number,
             'pin_code': pin_code,
-            'download_url': url_for('download_document', doc_id=document_id),
-            'docx_url': url_for('download_docx', doc_id=document_id) if docx_path else None,
-            'convert_docx_to_pdf_url': url_for('convert_docx_to_pdf_route', doc_id=document_id) if docx_path else None
+            'download_url': url_for('download_document', doc_id=document_id)
         })
             
     except Exception as e:
@@ -1044,26 +1121,114 @@ def download_document(doc_id):
         
         if not document:
             return "Документ не найден", 404
-        pdf_path = document.get('pdf_path')
         
+        document_uuid = document.get('uuid', '')
+        if not document_uuid:
+            document_uuid = str(uuid.uuid4())
+        
+        pdf_path = document.get('pdf_path')
+        filename = f'{document_uuid}.pdf'
+        
+        # Пытаемся получить файл из хранилища
+        if pdf_path:
+            file_data = storage_manager.get_file(pdf_path)
+            if file_data:
+                # Возвращаем файл из хранилища
+                return send_file(
+                    BytesIO(file_data),
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='application/pdf'
+                )
+        
+        # Если файл не найден в хранилище, проверяем локально (для обратной совместимости)
         if pdf_path and os.path.exists(pdf_path):
             return send_file(
                 pdf_path,
                 as_attachment=True,
-                download_name=f'spravka_{document.get("doc_number")}.pdf'
+                download_name=filename
             )
-        else:
-            # Если PDF не существует, генерируем его заново
-            pdf_path = generate_pdf_document(document)
-            if pdf_path:
-                # Обновляем путь в БД
-                db_update('documents', {'pdf_path': pdf_path}, 'id = %s', [doc_id])
+        
+        # Если PDF не существует, генерируем его заново
+        pdf_path = generate_pdf_document(document)
+        if pdf_path:
+            # Обновляем путь в БД
+            db_update('documents', {'pdf_path': pdf_path}, 'id = %s', [doc_id])
+            # Получаем файл из хранилища
+            file_data = storage_manager.get_file(pdf_path)
+            if file_data:
+                return send_file(
+                    BytesIO(file_data),
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='application/pdf'
+                )
+            # Fallback на локальный файл
+            if os.path.exists(pdf_path):
                 return send_file(
                     pdf_path,
                     as_attachment=True,
-                    download_name=f'spravka_{document.get("doc_number")}.pdf'
+                    download_name=filename
                 )
-            return "PDF файл не найден", 404
+        return "PDF файл не найден", 404
+    except Exception as e:
+        return f"Ошибка: {str(e)}", 500
+
+
+@app.route('/download-by-uuid/<uuid>')
+def download_by_uuid(uuid):
+    """Скачивание PDF документа по UUID (для QR-кода)"""
+    try:
+        document = db_select('documents', 'uuid = %s', [uuid], fetch_one=True)
+        
+        if not document:
+            return "Документ не найден", 404
+        
+        pdf_path = document.get('pdf_path')
+        filename = f'{uuid}.pdf'
+        
+        # Пытаемся получить файл из хранилища
+        if pdf_path:
+            file_data = storage_manager.get_file(pdf_path)
+            if file_data:
+                # Возвращаем файл из хранилища
+                return send_file(
+                    BytesIO(file_data),
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='application/pdf'
+                )
+        
+        # Если файл не найден в хранилище, проверяем локально (для обратной совместимости)
+        if pdf_path and os.path.exists(pdf_path):
+            return send_file(
+                pdf_path,
+                as_attachment=True,
+                download_name=filename
+            )
+        
+        # Если PDF не существует, генерируем его заново
+        pdf_path = generate_pdf_document(document)
+        if pdf_path:
+            # Обновляем путь в БД
+            db_update('documents', {'pdf_path': pdf_path}, 'uuid = %s', [uuid])
+            # Получаем файл из хранилища
+            file_data = storage_manager.get_file(pdf_path)
+            if file_data:
+                return send_file(
+                    BytesIO(file_data),
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='application/pdf'
+                )
+            # Fallback на локальный файл
+            if os.path.exists(pdf_path):
+                return send_file(
+                    pdf_path,
+                    as_attachment=True,
+                    download_name=filename
+                )
+        return "PDF файл не найден", 404
     except Exception as e:
         return f"Ошибка: {str(e)}", 500
 
@@ -1076,54 +1241,225 @@ def download_docx(doc_id):
         
         if not document:
             return "Документ не найден", 404
-        docx_path = document.get('docx_path')
         
+        docx_path = document.get('docx_path')
+        doc_number = document.get('doc_number', 'unknown')
+        filename = f'spravka_{doc_number}.docx'
+        
+        # Пытаемся получить файл из хранилища
+        if docx_path:
+            file_data = storage_manager.get_file(docx_path)
+            if file_data:
+                return send_file(
+                    BytesIO(file_data),
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                )
+        
+        # Если файл не найден в хранилище, проверяем локально (для обратной совместимости)
         if docx_path and os.path.exists(docx_path):
             return send_file(
                 docx_path,
                 as_attachment=True,
-                download_name=f'spravka_{document.get("doc_number")}.docx',
+                download_name=filename,
                 mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
             )
-        else:
-            # Если DOCX не существует, генерируем его заново
-            docx_path = fill_docx_template(document)
-            if docx_path:
-                # Обновляем путь в БД
-                db_update('documents', {'docx_path': docx_path}, 'id = %s', [doc_id])
+        
+        # Если DOCX не существует, генерируем его заново
+        docx_path = fill_docx_template(document)
+        if docx_path:
+            # Обновляем путь в БД
+            db_update('documents', {'docx_path': docx_path}, 'id = %s', [doc_id])
+            # Получаем файл из хранилища
+            file_data = storage_manager.get_file(docx_path)
+            if file_data:
+                return send_file(
+                    BytesIO(file_data),
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                )
+            # Fallback на локальный файл
+            if os.path.exists(docx_path):
                 return send_file(
                     docx_path,
                     as_attachment=True,
-                    download_name=f'spravka_{document.get("doc_number")}.docx',
+                    download_name=filename,
                     mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                 )
-            return "DOCX файл не найден", 404
+        return "DOCX файл не найден", 404
     except Exception as e:
         return f"Ошибка: {str(e)}", 500
 
 
 def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None):
     """Конвертирует DOCX файл в PDF, читая содержимое DOCX и создавая PDF"""
+    # Получаем DOCX файл из хранилища или локально
+    docx_data = None
+    temp_docx_path = None
+    
+    if docx_path:
+        # Пытаемся получить из хранилища
+        docx_data = storage_manager.get_file(docx_path)
+        if docx_data:
+            # Сохраняем во временный файл для конвертации
+            temp_docx_path = os.path.join(app.config['UPLOAD_FOLDER'], f'temp_{uuid.uuid4()}.docx')
+            with open(temp_docx_path, 'wb') as f:
+                f.write(docx_data)
+            docx_path = temp_docx_path
+    
     if not docx_path or not os.path.exists(docx_path):
         return None
     
     try:
-        # Метод 1: Попытка использовать docx2pdf (требует LibreOffice/Word)
+        if output_path is None:
+            # Используем UUID для имени файла
+            document_uuid = document_data.get('uuid', '') if document_data else ''
+            if not document_uuid:
+                document_uuid = str(uuid.uuid4())
+            output_path = os.path.join(
+                app.config['UPLOAD_FOLDER'],
+                f"{document_uuid}.pdf"
+            )
+        
+        # Метод 1: Используем mammoth + weasyprint (не требует LibreOffice/Word, сохраняет форматирование)
+        if MAMMOTH_AVAILABLE and WEASYPRINT_AVAILABLE:
+            try:
+                # Функция для конвертации изображений в base64
+                def convert_image(image):
+                    """Конвертирует изображения из DOCX в base64 для вставки в HTML"""
+                    with image.open() as image_bytes:
+                        image_base64 = base64.b64encode(image_bytes.read()).decode("utf-8")
+                        return {"src": f"data:{image.content_type};base64,{image_base64}"}
+                
+                # Конвертируем DOCX в HTML через mammoth с обработкой изображений
+                with open(docx_path, "rb") as docx_file:
+                    result = mammoth.convert_to_html(
+                        docx_file,
+                        convert_image=mammoth.images.img_element(convert_image)
+                    )
+                    html_content = result.value
+                    # Получаем предупреждения (если есть)
+                    if result.messages:
+                        print(f"[WARNING] Предупреждения mammoth: {result.messages}")
+                
+                # Добавляем базовые стили для лучшего отображения
+                html_with_styles = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        @page {{
+                            size: A4;
+                            margin: 2cm;
+                        }}
+                        body {{
+                            font-family: 'Times New Roman', serif;
+                            font-size: 12pt;
+                            line-height: 1.5;
+                            color: #000;
+                        }}
+                        p {{
+                            margin: 0.5em 0;
+                        }}
+                        table {{
+                            border-collapse: collapse;
+                            width: 100%;
+                            margin: 1em 0;
+                        }}
+                        table td, table th {{
+                            border: 1px solid #ddd;
+                            padding: 8px;
+                        }}
+                        table th {{
+                            background-color: #f2f2f2;
+                            font-weight: bold;
+                        }}
+                        img {{
+                            max-width: 100%;
+                            height: auto;
+                        }}
+                        h1, h2, h3, h4, h5, h6 {{
+                            margin: 1em 0 0.5em 0;
+                            font-weight: bold;
+                        }}
+                    </style>
+                </head>
+                <body>
+                    {html_content}
+                </body>
+                </html>
+                """
+                
+                # Конвертируем HTML в PDF через weasyprint
+                HTML(string=html_with_styles).write_pdf(output_path)
+                
+                if os.path.exists(output_path):
+                    print(f"[OK] DOCX успешно конвертирован в PDF через mammoth+weasyprint: {output_path}")
+                    # Сохраняем PDF в хранилище
+                    with open(output_path, 'rb') as f:
+                        pdf_data = f.read()
+                    
+                    pdf_filename = os.path.basename(output_path)
+                    stored_path = storage_manager.save_file(pdf_data, pdf_filename, 'application/pdf')
+                    
+                    # Удаляем локальный файл если используется MinIO
+                    if storage_manager.use_minio and os.path.exists(output_path):
+                        try:
+                            os.remove(output_path)
+                        except:
+                            pass
+                    
+                    # Удаляем временный DOCX файл если был создан
+                    if temp_docx_path and os.path.exists(temp_docx_path):
+                        try:
+                            os.remove(temp_docx_path)
+                        except:
+                            pass
+                    
+                    return stored_path
+            except Exception as e:
+                print(f"[WARNING] Ошибка при конвертации через mammoth+weasyprint: {e}")
+                import traceback
+                print(traceback.format_exc())
+                print("Пробуем альтернативный метод...")
+        
+        # Метод 2: Попытка использовать docx2pdf (требует LibreOffice/Word)
         if DOCX2PDF_AVAILABLE:
             try:
-                if output_path is None:
-                    output_path = docx_path.replace('.docx', '.pdf')
-                
                 convert(docx_path, output_path)
                 
                 if os.path.exists(output_path):
-                    print(f"✅ DOCX успешно конвертирован в PDF через docx2pdf: {output_path}")
-                    return output_path
+                    print(f"[OK] DOCX успешно конвертирован в PDF через docx2pdf: {output_path}")
+                    # Сохраняем PDF в хранилище
+                    with open(output_path, 'rb') as f:
+                        pdf_data = f.read()
+                    
+                    pdf_filename = os.path.basename(output_path)
+                    stored_path = storage_manager.save_file(pdf_data, pdf_filename, 'application/pdf')
+                    
+                    # Удаляем локальный файл если используется MinIO
+                    if storage_manager.use_minio and os.path.exists(output_path):
+                        try:
+                            os.remove(output_path)
+                        except:
+                            pass
+                    
+                    # Удаляем временный DOCX файл если был создан
+                    if temp_docx_path and os.path.exists(temp_docx_path):
+                        try:
+                            os.remove(temp_docx_path)
+                        except:
+                            pass
+                    
+                    return stored_path
             except Exception as e:
-                print(f"⚠️ Ошибка при конвертации через docx2pdf: {e}")
+                print(f"[WARNING] Ошибка при конвертации через docx2pdf: {e}")
                 print("Используем альтернативный метод...")
         
-        # Метод 2: Читаем DOCX и создаем PDF на основе его содержимого
+        # Метод 3: Читаем DOCX и создаем PDF на основе его содержимого (базовый метод)
         try:
             doc = Document(docx_path)
             
@@ -1237,27 +1573,61 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None):
             c.save()
             
             if os.path.exists(output_path):
-                print(f"✅ DOCX успешно конвертирован в PDF (альтернативный метод): {output_path}")
-                return output_path
+                print(f"[OK] DOCX успешно конвертирован в PDF (альтернативный метод): {output_path}")
+                # Сохраняем PDF в хранилище
+                with open(output_path, 'rb') as f:
+                    pdf_data = f.read()
+                
+                pdf_filename = os.path.basename(output_path)
+                stored_path = storage_manager.save_file(pdf_data, pdf_filename, 'application/pdf')
+                
+                # Удаляем локальный файл если используется MinIO
+                if storage_manager.use_minio and os.path.exists(output_path):
+                    try:
+                        os.remove(output_path)
+                    except:
+                        pass
+                
+                # Удаляем временный DOCX файл если был создан
+                if temp_docx_path and os.path.exists(temp_docx_path):
+                    try:
+                        os.remove(temp_docx_path)
+                    except:
+                        pass
+                
+                return stored_path
             
         except Exception as e:
-            print(f"⚠️ Ошибка при альтернативной конвертации: {e}")
+            print(f"[WARNING] Ошибка при альтернативной конвертации: {e}")
             import traceback
             print(traceback.format_exc())
         
-        # Метод 3: Fallback - генерируем PDF из данных БД (если есть)
+        # Метод 4: Fallback - генерируем PDF из данных БД (если есть)
         if document_data:
             print("Используем fallback: генерация PDF из данных БД")
             pdf_path = generate_pdf_document(document_data)
-            if pdf_path and os.path.exists(pdf_path):
+            if pdf_path:
                 return pdf_path
+        
+        # Удаляем временный DOCX файл если был создан
+        if temp_docx_path and os.path.exists(temp_docx_path):
+            try:
+                os.remove(temp_docx_path)
+            except:
+                pass
         
         return None
         
     except Exception as e:
-        print(f"❌ Ошибка при конвертации DOCX в PDF: {e}")
+        print(f"[ERROR] Ошибка при конвертации DOCX в PDF: {e}")
         import traceback
         print(traceback.format_exc())
+        # Удаляем временный DOCX файл если был создан
+        if temp_docx_path and os.path.exists(temp_docx_path):
+            try:
+                os.remove(temp_docx_path)
+            except:
+                pass
         return None
 
 
@@ -1275,21 +1645,25 @@ def convert_docx_to_pdf_route(doc_id):
             # Если DOCX нет, генерируем PDF из данных БД
             pdf_path = generate_pdf_document(document)
             if pdf_path and os.path.exists(pdf_path):
+                document_uuid = document.get('uuid', '')
+                if not document_uuid:
+                    document_uuid = str(uuid.uuid4())
                 return send_file(
                     pdf_path,
                     as_attachment=True,
-                    download_name=f'spravka_{document.get("doc_number")}.pdf',
+                    download_name=f'{document_uuid}.pdf',
                     mimetype='application/pdf'
                 )
             else:
                 return jsonify({'success': False, 'error': 'Не удалось создать PDF'}), 500
         
         # Пытаемся конвертировать DOCX в PDF
-        doc_number = document.get('doc_number', 'unknown')
-        safe_doc_number = doc_number.replace('№', '').replace(' ', '_').strip()
+        document_uuid = document.get('uuid', '')
+        if not document_uuid:
+            document_uuid = str(uuid.uuid4())
         pdf_output_path = os.path.join(
             app.config['UPLOAD_FOLDER'], 
-            f"document_{safe_doc_number}_from_docx.pdf"
+            f"{document_uuid}.pdf"
         )
         
         converted_pdf = convert_docx_to_pdf_from_docx(docx_path, document, pdf_output_path)
@@ -1304,7 +1678,7 @@ def convert_docx_to_pdf_route(doc_id):
             return send_file(
                 converted_pdf,
                 as_attachment=True,
-                download_name=f'spravka_{doc_number}.pdf',
+                download_name=f'{document_uuid}.pdf',
                 mimetype='application/pdf'
             )
         else:
@@ -1314,7 +1688,7 @@ def convert_docx_to_pdf_route(doc_id):
                 return send_file(
                     pdf_path,
                     as_attachment=True,
-                    download_name=f'spravka_{doc_number}.pdf',
+                    download_name=f'{document_uuid}.pdf',
                     mimetype='application/pdf'
                 )
             else:
@@ -1331,6 +1705,31 @@ def convert_docx_to_pdf_route(doc_id):
 def verify_document():
     """Страница верификации документа"""
     return render_template('verify.html')
+
+
+@app.route('/verify/<uuid>')
+def verify_by_uuid(uuid):
+    """Страница верификации документа по UUID (из QR-кода)"""
+    try:
+        # Ищем документ по UUID
+        document = db_select('documents', 'uuid = %s', [uuid], fetch_one=True)
+        
+        if not document:
+            return render_template('verify.html', error='Документ не найден')
+        
+        # Преобразуем в объект-подобный формат для шаблона
+        class DocumentObj:
+            def __init__(self, data):
+                for key, value in data.items():
+                    setattr(self, key, value)
+            
+            def __getitem__(self, key):
+                return getattr(self, key, None)
+        
+        doc_obj = DocumentObj(document)
+        return render_template('document_view.html', document=doc_obj, now=datetime.now)
+    except Exception as e:
+        return render_template('verify.html', error=f'Ошибка: {str(e)}')
 
 
 @app.route('/verify-pin', methods=['POST'])
@@ -1409,7 +1808,7 @@ def verify_pin():
                 'days_off_period': days_off_str,
                 'uuid': document.get('uuid', ''),
                 'pdf_url': url_for('download_document', doc_id=document.get('id'), _external=True),
-                'docx_url': url_for('download_docx', doc_id=document.get('id'), _external=True)
+                'pdf_url_by_uuid': url_for('download_by_uuid', uuid=document.get('uuid', ''), _external=True) if document.get('uuid') else None
             }
         })
         
@@ -1461,6 +1860,116 @@ def view_document_by_number(doc_number):
         return render_template('document_view.html', document=doc_obj, now=datetime.now)
     except Exception as e:
         return f"Ошибка: {str(e)}", 500
+
+
+@app.route('/files')
+def files_history():
+    """Страница истории файлов"""
+    return render_template('files_history.html')
+
+
+@app.route('/api/files', methods=['GET'])
+def list_files():
+    """Получение списка всех файлов в хранилище с информацией из БД"""
+    try:
+        # Получаем параметры запроса
+        prefix = request.args.get('prefix', '')
+        file_type = request.args.get('type', '')  # 'pdf', 'docx' или пусто для всех
+        
+        # Формируем префикс для фильтрации
+        search_prefix = prefix
+        
+        # Получаем список файлов из хранилища
+        files = storage_manager.list_files(prefix=search_prefix, recursive=True)
+        
+        # Фильтруем по типу файла если указан
+        if file_type:
+            extension = f'.{file_type.lower()}'
+            files = [f for f in files if f['name'].lower().endswith(extension)]
+        
+        # Обогащаем файлы информацией из БД
+        enriched_files = []
+        for file_info in files:
+            # Извлекаем UUID из имени файла (убираем расширение)
+            filename = file_info['name']
+            uuid_from_filename = filename.replace('.pdf', '').replace('.docx', '')
+            
+            # Ищем документ в БД по UUID
+            document = None
+            try:
+                document = db_select('documents', 'uuid = %s', [uuid_from_filename], fetch_one=True)
+            except:
+                pass
+            
+            # Добавляем информацию из БД
+            enriched_file = {
+                **file_info,
+                'patient_name': document.get('patient_name') if document else None,
+                'doc_number': document.get('doc_number') if document else None,
+                'issue_date': document.get('issue_date').isoformat() if document and document.get('issue_date') else None,
+            }
+            
+            enriched_files.append(enriched_file)
+        
+        # Форматируем даты для JSON
+        for file_info in enriched_files:
+            if isinstance(file_info.get('last_modified'), datetime):
+                file_info['last_modified'] = file_info['last_modified'].isoformat()
+        
+        return jsonify({
+            'success': True,
+            'count': len(enriched_files),
+            'files': enriched_files,
+            'storage_type': 'minio' if storage_manager.use_minio else 'local'
+        })
+    except Exception as e:
+        import traceback
+        print(f"Ошибка при получении списка файлов: {e}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/files/download/<path:filename>', methods=['GET'])
+def download_file_by_name(filename):
+    """Скачивание файла по имени из хранилища"""
+    try:
+        # Получаем файл из хранилища
+        file_data = storage_manager.get_file(filename)
+        
+        if not file_data:
+            return jsonify({'success': False, 'error': 'Файл не найден'}), 404
+        
+        # Определяем MIME тип
+        content_type = 'application/octet-stream'
+        if filename.lower().endswith('.pdf'):
+            content_type = 'application/pdf'
+        elif filename.lower().endswith('.docx'):
+            content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        elif filename.lower().endswith('.doc'):
+            content_type = 'application/msword'
+        
+        return send_file(
+            BytesIO(file_data),
+            as_attachment=True,
+            download_name=filename,
+            mimetype=content_type
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/files/delete/<path:filename>', methods=['DELETE'])
+def delete_file_by_name(filename):
+    """Удаление файла по имени из хранилища"""
+    try:
+        success = storage_manager.delete_file(filename)
+        
+        if success:
+            return jsonify({'success': True, 'message': f'Файл {filename} успешно удален'})
+        else:
+            return jsonify({'success': False, 'error': 'Файл не найден или не удалось удалить'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 if __name__ == '__main__':

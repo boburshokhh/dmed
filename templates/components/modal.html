@@ -17,29 +17,24 @@
 
         <p style="color: #64748b; margin-bottom: 20px; font-size: 14px;">
             Сохраните PIN-код! Он понадобится для проверки подлинности документа.<br>
-            Документ создан из вашего DOCX шаблона с автоматической генерацией QR-кода.
+            Документ создан в формате PDF с автоматической генерацией QR-кода.
         </p>
 
         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px;">
             <a href="#" id="downloadLink" class="btn-download" download>
                 📄 Скачать PDF
             </a>
-            <a href="#" id="downloadDocxLink" class="btn-download" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); display: none;" download>
-                📝 Скачать DOCX (из шаблона)
-            </a>
-            <a href="#" id="downloadDocxToPdfLink" class="btn-download" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); display: none;" download>
-                🔄 DOCX → PDF (конвертировать)
-            </a>
         </div>
 
         <div style="background: #f0f9ff; border-left: 4px solid #2563EB; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: left;">
             <div style="font-weight: 600; color: #1e40af; margin-bottom: 5px;">ℹ️ Информация о документе:</div>
             <div style="color: #475569; font-size: 13px; line-height: 1.6;">
-                • Документ создан из шаблона template.docx<br>
-                • Все плейсхолдеры заполнены данными из формы<br>
+                • Документ создан в формате PDF<br>
+                • Все данные заполнены из формы<br>
                 • QR-код добавлен автоматически<br>
                 • PIN-код сгенерирован для верификации<br>
-                • Документ сохранен в базе данных Supabase
+                • Документ сохранен в базе данных<br>
+                • Имя файла: UUID документа
             </div>
         </div>
 

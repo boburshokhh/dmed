@@ -33,6 +33,8 @@ instance/
 static/generated_documents/*.pdf
 static/generated_documents/*.docx
 static/generated_documents/*.png
+uploads/
+!uploads/.gitkeep
 
 # IDE
 .vscode/

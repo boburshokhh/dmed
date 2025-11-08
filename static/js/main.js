@@ -123,7 +123,6 @@ async function submitForm(data) {
             console.log('Документ создан успешно!');
             console.log('Номер документа:', result.doc_number);
             console.log('PIN-код:', result.pin_code);
-            console.log('DOCX URL:', result.docx_url);
         } else {
             alert('Ошибка при создании документа: ' + result.error);
             console.error('Ошибка создания документа:', result.error);
@@ -143,36 +142,6 @@ function showSuccessModal(result) {
     document.getElementById('resultDocNumber').textContent = result.doc_number;
     document.getElementById('resultPinCode').textContent = result.pin_code;
     document.getElementById('downloadLink').href = result.download_url;
-    
-    // Добавляем ссылку на DOCX если есть
-    const docxLink = document.getElementById('downloadDocxLink');
-    const docxToPdfLink = document.getElementById('downloadDocxToPdfLink');
-    
-    if (result.docx_url) {
-        docxLink.href = result.docx_url;
-        docxLink.style.display = 'inline-block';
-        docxLink.onclick = function(e) {
-            // Открываем в новой вкладке для скачивания
-            window.open(result.docx_url, '_blank');
-        };
-        
-        // Добавляем ссылку на конвертацию DOCX в PDF
-        if (result.document_id) {
-            const convertUrl = `/convert-docx-to-pdf/${result.document_id}`;
-            docxToPdfLink.href = convertUrl;
-            docxToPdfLink.style.display = 'inline-block';
-            docxToPdfLink.onclick = function(e) {
-                e.preventDefault();
-                // Показываем уведомление о конвертации
-                showNotification('🔄 Конвертируем DOCX в PDF...');
-                // Открываем ссылку для скачивания
-                window.location.href = convertUrl;
-            };
-        }
-    } else {
-        docxLink.style.display = 'none';
-        docxToPdfLink.style.display = 'none';
-    }
     
     // Показываем модальное окно
     document.getElementById('resultModal').style.display = 'flex';
