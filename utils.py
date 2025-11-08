@@ -137,8 +137,11 @@ def generate_qr_code(url):
     # Создаем базовое изображение QR-кода
     img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
     
-    # Создаем логотип
-    logo_size = min(img.size) // 4  # Логотип занимает 1/4 размера QR-кода
+    # Создаем логотип - фиксированный размер, чтобы заполнить отведенное место в центре QR-кода
+    # Вычисляем размер центральной области QR-кода (между угловыми маркерами)
+    qr_size = min(img.size)
+    # Центральная область примерно 40% от размера QR-кода (с учетом отступов)
+    logo_size = int(qr_size * 0.4)  # Логотип занимает 40% размера QR-кода
     logo = create_logo_image(size=logo_size)
     
     if logo:
@@ -150,8 +153,8 @@ def generate_qr_code(url):
         pos = ((img_width - logo_width) // 2, (img_height - logo_height) // 2)
         
         # Создаем белый фон для логотипа (чтобы он был виден на черных модулях)
-        # Размер фона немного больше логотипа
-        padding = 10
+        # Размер фона немного больше логотипа для лучшей видимости
+        padding = 8
         logo_with_bg = Image.new('RGBA', (logo_width + padding * 2, logo_height + padding * 2), (255, 255, 255, 255))
         logo_with_bg.paste(logo, (padding, padding), logo)
         
