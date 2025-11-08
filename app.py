@@ -127,8 +127,24 @@ def create_document():
             error_detail = "Не удалось конвертировать DOCX в PDF. Проверьте логи сервера."
             print(f"ОШИБКА: {error_detail}")
             import traceback
-            print(traceback.format_exc())
-            return jsonify({'success': False, 'error': error_detail}), 500
+            traceback_str = traceback.format_exc()
+            print(traceback_str)
+            
+            # Проверяем доступность библиотек для более информативного сообщения
+            from converter import MAMMOTH_AVAILABLE, WEASYPRINT_AVAILABLE, DOCX2PDF_AVAILABLE, WEASYPRINT_ERROR
+            if not WEASYPRINT_AVAILABLE:
+                error_detail += " Для Linux сервера требуется установить системные зависимости для weasyprint."
+            
+            return jsonify({
+                'success': False, 
+                'error': error_detail,
+                'details': {
+                    'mammoth_available': MAMMOTH_AVAILABLE,
+                    'weasyprint_available': WEASYPRINT_AVAILABLE,
+                    'docx2pdf_available': DOCX2PDF_AVAILABLE,
+                    'weasyprint_error': WEASYPRINT_ERROR if not WEASYPRINT_AVAILABLE else None
+                }
+            }), 500
         
         if not storage_manager.file_exists(pdf_path):
             error_detail = f"PDF файл не найден после конвертации: {pdf_path}"
