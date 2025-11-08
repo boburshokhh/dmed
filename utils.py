@@ -121,27 +121,32 @@ def create_logo_image(size=100):
 
 
 def generate_qr_code(url):
-    """Генерирует QR-код с логотипом в центре для заданного URL"""
-    # Используем более высокий уровень коррекции ошибок для возможности вставки логотипа
-    ERROR_CORRECT_H = 3  # Уровень коррекции ошибок H (High) - позволяет заменить до 30% данных
+    """Генерирует QR-код с логотипом в центре согласно спецификации"""
+    # Спецификация QR-кода:
+    # - error_correction: "H" (High) - позволяет заменить до 30% данных
+    # - quiet_zone_modules: 4 (отступы)
+    # - logo size_ratio: 0.22 (22% от размера QR-кода)
+    # - logo overprint: true (логотип поверх, без белого фона)
+    
+    ERROR_CORRECT_H = qrcode.constants.ERROR_CORRECT_H  # Уровень коррекции ошибок H (High)
     
     qr = qrcode.QRCode(
-        version=1,
+        version=None,  # Автоматический выбор версии
         error_correction=ERROR_CORRECT_H,  # Высокий уровень для вставки логотипа
         box_size=10,
-        border=4,
+        border=4,  # quiet_zone_modules: 4
     )
     qr.add_data(url)
     qr.make(fit=True)
     
     # Создаем базовое изображение QR-кода
-    img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
+    # Стиль: черные модули на белом фоне, квадратные угловые маркеры
+    img = qr.make_image(fill_color="#000000", back_color="#FFFFFF").convert('RGB')
     
-    # Создаем логотип - фиксированный размер, чтобы заполнить отведенное место в центре QR-кода
-    # Вычисляем размер центральной области QR-кода (между угловыми маркерами)
+    # Создаем логотип согласно спецификации
+    # size_ratio: 0.22 (22% от размера QR-кода) - уменьшено в 2 раза от предыдущего
     qr_size = min(img.size)
-    # Центральная область примерно 40% от размера QR-кода (с учетом отступов)
-    logo_size = int(qr_size * 0.4)  # Логотип занимает 40% размера QR-кода
+    logo_size = int(qr_size * 0.22)  # Логотип занимает 22% размера QR-кода
     logo = create_logo_image(size=logo_size)
     
     if logo:
@@ -152,14 +157,15 @@ def generate_qr_code(url):
         # Позиция для вставки (центр)
         pos = ((img_width - logo_width) // 2, (img_height - logo_height) // 2)
         
-        # Создаем белый фон для логотипа (чтобы он был виден на черных модулях)
-        # Размер фона немного больше логотипа для лучшей видимости
-        padding = 8
-        logo_with_bg = Image.new('RGBA', (logo_width + padding * 2, logo_height + padding * 2), (255, 255, 255, 255))
-        logo_with_bg.paste(logo, (padding, padding), logo)
+        # overprint: true - логотип вставляется поверх без белого фона
+        # Конвертируем изображение QR-кода в RGBA для поддержки прозрачности
+        img = img.convert('RGBA')
         
-        # Вставляем логотип с белым фоном в центр QR-кода
-        img.paste(logo_with_bg, (pos[0] - padding, pos[1] - padding), logo_with_bg)
+        # Вставляем логотип поверх QR-кода (overprint)
+        img.paste(logo, pos, logo)
+        
+        # Конвертируем обратно в RGB
+        img = img.convert('RGB')
     
     return img
 
