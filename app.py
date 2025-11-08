@@ -1064,7 +1064,7 @@ def create_document():
             print(traceback.format_exc())
             return jsonify({'success': False, 'error': f'Ошибка создания документа: {str(db_error)}'}), 500
         
-        # Генерируем DOCX документ из шаблона (временный, для конвертации)
+        # Генерируем DOCX документ из шаблона
         docx_path = fill_docx_template(created_document)
         
         if not docx_path:
@@ -1074,16 +1074,14 @@ def create_document():
             print(traceback.format_exc())
             return jsonify({'success': False, 'error': error_detail}), 500
         
+        # Сохраняем путь к DOCX в БД
+        try:
+            db_update('documents', {'docx_path': docx_path}, 'id = %s', [document_id])
+        except Exception as db_error:
+            print(f"Предупреждение: Не удалось обновить путь к DOCX в БД: {db_error}")
+        
         # Конвертируем DOCX в PDF сразу после создания
         pdf_path = convert_docx_to_pdf_from_docx(docx_path, created_document)
-        
-        # Удаляем временный DOCX файл после конвертации
-        if docx_path and os.path.exists(docx_path):
-            try:
-                os.remove(docx_path)
-                print(f"[OK] Временный DOCX файл удален: {docx_path}")
-            except Exception as e:
-                print(f"[WARNING] Не удалось удалить временный DOCX файл: {e}")
         
         # Если конвертация не удалась, используем базовый метод генерации PDF
         if not pdf_path or not storage_manager.file_exists(pdf_path):
@@ -1129,30 +1127,54 @@ def download_document(doc_id):
         pdf_path = document.get('pdf_path')
         filename = f'{document_uuid}.pdf'
         
-        # Пытаемся получить файл из хранилища
+        # Пытаемся получить файл из хранилища (MinIO или локальное)
         if pdf_path:
+            # Сначала пробуем получить из хранилища (работает и для MinIO, и для локального)
             file_data = storage_manager.get_file(pdf_path)
             if file_data:
-                # Возвращаем файл из хранилища
-                file_stream = BytesIO(file_data)
-                file_stream.seek(0)
                 return send_file(
-                    file_stream,
+                    BytesIO(file_data),
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='application/pdf'
+                )
+            
+            # Если файл не найден в хранилище, проверяем локально (для обратной совместимости)
+            if os.path.exists(pdf_path):
+                return send_file(
+                    pdf_path,
                     as_attachment=True,
                     download_name=filename,
                     mimetype='application/pdf'
                 )
         
-        # Если файл не найден в хранилище, проверяем локально (для обратной совместимости)
-        if pdf_path and os.path.exists(pdf_path):
-            return send_file(
-                pdf_path,
-                as_attachment=True,
-                download_name=filename,
-                mimetype='application/pdf'
-            )
+        # Если PDF не существует, пытаемся переконвертировать из DOCX
+        docx_path = document.get('docx_path')
+        if docx_path:
+            # Пытаемся получить DOCX и переконвертировать
+            pdf_path = convert_docx_to_pdf_from_docx(docx_path, document)
+            if pdf_path:
+                # Обновляем путь в БД
+                db_update('documents', {'pdf_path': pdf_path}, 'id = %s', [doc_id])
+                # Получаем файл из хранилища
+                file_data = storage_manager.get_file(pdf_path)
+                if file_data:
+                    return send_file(
+                        BytesIO(file_data),
+                        as_attachment=True,
+                        download_name=filename,
+                        mimetype='application/pdf'
+                    )
+                # Fallback на локальный файл
+                if os.path.exists(pdf_path):
+                    return send_file(
+                        pdf_path,
+                        as_attachment=True,
+                        download_name=filename,
+                        mimetype='application/pdf'
+                    )
         
-        # Если PDF не существует, генерируем его заново
+        # Если DOCX тоже нет, генерируем базовый PDF (последний вариант)
         pdf_path = generate_pdf_document(document)
         if pdf_path:
             # Обновляем путь в БД
@@ -1160,10 +1182,8 @@ def download_document(doc_id):
             # Получаем файл из хранилища
             file_data = storage_manager.get_file(pdf_path)
             if file_data:
-                file_stream = BytesIO(file_data)
-                file_stream.seek(0)
                 return send_file(
-                    file_stream,
+                    BytesIO(file_data),
                     as_attachment=True,
                     download_name=filename,
                     mimetype='application/pdf'
@@ -1176,6 +1196,7 @@ def download_document(doc_id):
                     download_name=filename,
                     mimetype='application/pdf'
                 )
+        
         return "PDF файл не найден", 404
     except Exception as e:
         return f"Ошибка: {str(e)}", 500
@@ -1193,30 +1214,54 @@ def download_by_uuid(uuid):
         pdf_path = document.get('pdf_path')
         filename = f'{uuid}.pdf'
         
-        # Пытаемся получить файл из хранилища
+        # Пытаемся получить файл из хранилища (MinIO или локальное)
         if pdf_path:
+            # Сначала пробуем получить из хранилища (работает и для MinIO, и для локального)
             file_data = storage_manager.get_file(pdf_path)
             if file_data:
-                # Возвращаем файл из хранилища
-                file_stream = BytesIO(file_data)
-                file_stream.seek(0)
                 return send_file(
-                    file_stream,
+                    BytesIO(file_data),
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='application/pdf'
+                )
+            
+            # Если файл не найден в хранилище, проверяем локально (для обратной совместимости)
+            if os.path.exists(pdf_path):
+                return send_file(
+                    pdf_path,
                     as_attachment=True,
                     download_name=filename,
                     mimetype='application/pdf'
                 )
         
-        # Если файл не найден в хранилище, проверяем локально (для обратной совместимости)
-        if pdf_path and os.path.exists(pdf_path):
-            return send_file(
-                pdf_path,
-                as_attachment=True,
-                download_name=filename,
-                mimetype='application/pdf'
-            )
+        # Если PDF не существует, пытаемся переконвертировать из DOCX
+        docx_path = document.get('docx_path')
+        if docx_path:
+            # Пытаемся получить DOCX и переконвертировать
+            pdf_path = convert_docx_to_pdf_from_docx(docx_path, document)
+            if pdf_path:
+                # Обновляем путь в БД
+                db_update('documents', {'pdf_path': pdf_path}, 'uuid = %s', [uuid])
+                # Получаем файл из хранилища
+                file_data = storage_manager.get_file(pdf_path)
+                if file_data:
+                    return send_file(
+                        BytesIO(file_data),
+                        as_attachment=True,
+                        download_name=filename,
+                        mimetype='application/pdf'
+                    )
+                # Fallback на локальный файл
+                if os.path.exists(pdf_path):
+                    return send_file(
+                        pdf_path,
+                        as_attachment=True,
+                        download_name=filename,
+                        mimetype='application/pdf'
+                    )
         
-        # Если PDF не существует, генерируем его заново
+        # Если DOCX тоже нет, генерируем базовый PDF (последний вариант)
         pdf_path = generate_pdf_document(document)
         if pdf_path:
             # Обновляем путь в БД
@@ -1224,10 +1269,8 @@ def download_by_uuid(uuid):
             # Получаем файл из хранилища
             file_data = storage_manager.get_file(pdf_path)
             if file_data:
-                file_stream = BytesIO(file_data)
-                file_stream.seek(0)
                 return send_file(
-                    file_stream,
+                    BytesIO(file_data),
                     as_attachment=True,
                     download_name=filename,
                     mimetype='application/pdf'
@@ -1240,6 +1283,7 @@ def download_by_uuid(uuid):
                     download_name=filename,
                     mimetype='application/pdf'
                 )
+        
         return "PDF файл не найден", 404
     except Exception as e:
         return f"Ошибка: {str(e)}", 500
@@ -1960,10 +2004,8 @@ def download_file_by_name(filename):
         elif filename.lower().endswith('.doc'):
             content_type = 'application/msword'
         
-        file_stream = BytesIO(file_data)
-        file_stream.seek(0)
         return send_file(
-            file_stream,
+            BytesIO(file_data),
             as_attachment=True,
             download_name=filename,
             mimetype=content_type
