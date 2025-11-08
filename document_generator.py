@@ -405,11 +405,11 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             qr_url = f"https://dmed.netlify.app/access/{document_uuid}"
         else:
             # Fallback на старый способ, если UUID не передан
-        try:
-            from flask import url_for
-            qr_url = url_for('verify_document', _external=True)
-        except RuntimeError:
-            qr_url = '/verify'
+            try:
+                from flask import url_for
+                qr_url = url_for('verify_document', _external=True)
+            except RuntimeError:
+                qr_url = '/verify'
         
         qr_img = generate_qr_code(qr_url)
         

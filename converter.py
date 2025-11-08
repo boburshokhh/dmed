@@ -47,7 +47,7 @@ try:
         if os.path.exists(test_file.name):
             os.remove(test_file.name)
     except Exception as test_error:
-    WEASYPRINT_AVAILABLE = False
+        WEASYPRINT_AVAILABLE = False
         WEASYPRINT_ERROR = f"weasyprint импортирован, но не работает: {test_error}"
         print(f"[WARNING] {WEASYPRINT_ERROR}")
 except ImportError as e:
