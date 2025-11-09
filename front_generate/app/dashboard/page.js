@@ -2,7 +2,7 @@
 
 import { MainLayout } from '@/components/layout/main-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, FileText, Settings, Activity } from 'lucide-react'
+import { Users, FileText, Settings, Activity, AlertTriangle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { isSuperAdmin } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
@@ -125,6 +125,23 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Предупреждение о незаконном использовании */}
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-amber-900">
+                  ⚠️ Предупреждение о незаконном использовании
+                </h3>
+                <p className="text-xs sm:text-sm text-amber-800 leading-relaxed">
+                  Данная система предназначена исключительно для законных целей. Использование системы для создания поддельных документов, мошенничества или любых других незаконных действий строго запрещено. Администрация не несет ответственности за нарушения закона, совершенные пользователями системы. Все действия пользователей логируются и могут быть использованы в качестве доказательств при расследовании правонарушений.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </MainLayout>
   )

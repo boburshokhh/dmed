@@ -81,3 +81,4 @@ sudo apt-get install -y libreoffice libreoffice-writer
 
 **Все работает автоматически, ничего дополнительно делать не нужно!**
 
+

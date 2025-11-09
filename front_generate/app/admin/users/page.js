@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Edit, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Edit, Trash2, Loader2, AlertTriangle } from 'lucide-react'
 import { isSuperAdmin } from '@/lib/auth'
 import api from '@/lib/api'
 
@@ -153,6 +153,23 @@ export default function UsersPage() {
             Добавить администратора
           </Button>
         </div>
+
+        {/* Предупреждение о незаконном использовании */}
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="flex items-start gap-2 sm:gap-3">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1 sm:space-y-2">
+                <h3 className="text-xs sm:text-sm font-semibold text-amber-900">
+                  ⚠️ Предупреждение о незаконном использовании
+                </h3>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Данная система предназначена исключительно для законных целей. Использование системы для создания поддельных документов, мошенничества или любых других незаконных действий строго запрещено. Администрация не несет ответственности за нарушения закона, совершенные пользователями системы. Все действия пользователей логируются и могут быть использованы в качестве доказательств при расследовании правонарушений.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>

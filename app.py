@@ -143,11 +143,25 @@ try:
     from auth_routes import auth_bp, admin_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
+    print("✓ Blueprints auth_bp и admin_bp успешно зарегистрированы")
     
     from document_routes import documents_bp
     app.register_blueprint(documents_bp)
+    print("✓ Blueprint documents_bp успешно зарегистрирован")
+    
+    # Выводим список всех зарегистрированных маршрутов для отладки
+    print("\nЗарегистрированные маршруты:")
+    for rule in app.url_map.iter_rules():
+        if rule.rule.startswith('/api'):
+            print(f"  {rule.methods} {rule.rule}")
 except ImportError as e:
-    print(f"Warning: Не удалось импортировать API routes: {e}")
+    print(f"❌ ОШИБКА: Не удалось импортировать API routes: {e}")
+    import traceback
+    traceback.print_exc()
+except Exception as e:
+    print(f"❌ ОШИБКА при регистрации Blueprints: {e}")
+    import traceback
+    traceback.print_exc()
 
 # Создаем директории если их нет
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -160,6 +174,16 @@ os.makedirs(app.config['TEMPLATE_FOLDER'], exist_ok=True)
 def index():
     """Главная страница с формой"""
     return render_template('index.html')
+
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Проверка работоспособности API"""
+    return jsonify({
+        'status': 'ok',
+        'message': 'API работает',
+        'blueprints': [bp.name for bp in app.blueprints.values()]
+    })
 
 
 @app.route('/create-document', methods=['POST'])

@@ -15,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { FileText, Loader2, CheckCircle, Download, Copy, Zap } from 'lucide-react'
+import { FileText, Loader2, CheckCircle, Download, Copy, Zap, AlertTriangle } from 'lucide-react'
 import api from '@/lib/api'
 import { DatePicker } from '@/components/ui/date-picker'
 import { isSuperAdmin } from '@/lib/auth'
@@ -231,6 +231,23 @@ export default function CreateDocumentPage() {
             </Button>
           )}
         </div>
+
+        {/* Предупреждение о незаконном использовании */}
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="pt-4 sm:pt-6">
+            <div className="flex items-start gap-2 sm:gap-3">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="space-y-1 sm:space-y-2">
+                <h3 className="text-xs sm:text-sm font-semibold text-amber-900">
+                  ⚠️ Предупреждение о незаконном использовании
+                </h3>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  <strong>Не используйте систему в незаконных целях.</strong> Администрация не несет ответственности за нарушения закона, совершенные пользователями. Все действия логируются и могут быть использованы в качестве доказательств при расследовании правонарушений.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardContent className="pt-6">
@@ -523,6 +540,15 @@ export default function CreateDocumentPage() {
                 <p className="text-xs text-amber-800 text-center">
                   <strong>Важно!</strong> Сохраните PIN-код. Он потребуется для верификации документа.
                 </p>
+              </div>
+
+              <div className="rounded-lg border border-red-200 bg-red-50 p-2 sm:p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-red-800 leading-relaxed">
+                    <strong>Предупреждение:</strong> Не используйте сгенерированные документы в незаконных целях. Администрация не несет ответственности за нарушения закона, совершенные пользователями системы.
+                  </p>
+                </div>
               </div>
             </div>
 
