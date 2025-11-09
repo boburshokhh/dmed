@@ -63,7 +63,7 @@ if sys.platform == 'win32':
     warnings.filterwarnings('ignore', message='.*UWP app.*')
     warnings.filterwarnings('ignore', category=UserWarning, module='gi')
 
-from flask import Flask, render_template, request, jsonify, send_file, url_for
+from flask import Flask, request, jsonify, send_file, url_for
 from flask_cors import CORS
 from datetime import datetime
 from io import BytesIO
@@ -170,10 +170,11 @@ os.makedirs(app.config['TEMPLATE_FOLDER'], exist_ok=True)
 
 # Маршруты
 
-@app.route('/')
-def index():
-    """Главная страница с формой"""
-    return render_template('index.html')
+# Главная страница теперь обслуживается Next.js фронтендом
+# @app.route('/')
+# def index():
+#     """Главная страница с формой"""
+#     return render_template('index.html')
 
 
 @app.route('/api/health', methods=['GET'])
@@ -584,33 +585,33 @@ def convert_docx_to_pdf_route(doc_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/verify')
-def verify_document():
-    """Страница верификации документа"""
-    return render_template('verify.html')
-
-
-@app.route('/verify/<uuid>')
-def verify_by_uuid(uuid):
-    """Страница верификации документа по UUID (из QR-кода)"""
-    try:
-        document = db_select('documents', 'uuid = %s', [uuid], fetch_one=True)
-        
-        if not document:
-            return render_template('verify.html', error='Документ не найден')
-        
-        class DocumentObj:
-            def __init__(self, data):
-                for key, value in data.items():
-                    setattr(self, key, value)
-            
-            def __getitem__(self, key):
-                return getattr(self, key, None)
-        
-        doc_obj = DocumentObj(document)
-        return render_template('document_view.html', document=doc_obj, now=datetime.now)
-    except Exception as e:
-        return render_template('verify.html', error=f'Ошибка: {str(e)}')
+# HTML маршруты для верификации теперь обслуживаются Next.js фронтендом
+# @app.route('/verify')
+# def verify_document():
+#     """Страница верификации документа"""
+#     return render_template('verify.html')
+#
+# @app.route('/verify/<uuid>')
+# def verify_by_uuid(uuid):
+#     """Страница верификации документа по UUID (из QR-кода)"""
+#     try:
+#         document = db_select('documents', 'uuid = %s', [uuid], fetch_one=True)
+#         
+#         if not document:
+#             return render_template('verify.html', error='Документ не найден')
+#         
+#         class DocumentObj:
+#             def __init__(self, data):
+#                 for key, value in data.items():
+#                     setattr(self, key, value)
+#             
+#             def __getitem__(self, key):
+#                 return getattr(self, key, None)
+#         
+#         doc_obj = DocumentObj(document)
+#         return render_template('document_view.html', document=doc_obj, now=datetime.now)
+#     except Exception as e:
+#         return render_template('verify.html', error=f'Ошибка: {str(e)}')
 
 
 @app.route('/verify-pin', methods=['POST'])
@@ -859,56 +860,55 @@ def verify_pin_by_uuid(uuid):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@app.route('/document/<int:doc_id>')
-def view_document(doc_id):
-    """Просмотр документа по ID"""
-    try:
-        document = db_select('documents', 'id = %s', [doc_id], fetch_one=True)
-        
-        if not document:
-            return "Документ не найден", 404
-        
-        class DocumentObj:
-            def __init__(self, data):
-                for key, value in data.items():
-                    setattr(self, key, value)
-            
-            def __getitem__(self, key):
-                return getattr(self, key, None)
-        
-        doc_obj = DocumentObj(document)
-        return render_template('document_view.html', document=doc_obj, now=datetime.now)
-    except Exception as e:
-        return f"Ошибка: {str(e)}", 500
-
-
-@app.route('/document/<string:doc_number>')
-def view_document_by_number(doc_number):
-    """Просмотр документа по номеру"""
-    try:
-        document = db_select('documents', 'doc_number = %s', [doc_number], fetch_one=True)
-        
-        if not document:
-            return "Документ не найден", 404
-        
-        class DocumentObj:
-            def __init__(self, data):
-                for key, value in data.items():
-                    setattr(self, key, value)
-            
-            def __getitem__(self, key):
-                return getattr(self, key, None)
-        
-        doc_obj = DocumentObj(document)
-        return render_template('document_view.html', document=doc_obj, now=datetime.now)
-    except Exception as e:
-        return f"Ошибка: {str(e)}", 500
-
-
-@app.route('/files')
-def files_history():
-    """Страница истории файлов"""
-    return render_template('files_history.html')
+# HTML маршруты для просмотра документов теперь обслуживаются Next.js фронтендом
+# @app.route('/document/<int:doc_id>')
+# def view_document(doc_id):
+#     """Просмотр документа по ID"""
+#     try:
+#         document = db_select('documents', 'id = %s', [doc_id], fetch_one=True)
+#         
+#         if not document:
+#             return "Документ не найден", 404
+#         
+#         class DocumentObj:
+#             def __init__(self, data):
+#                 for key, value in data.items():
+#                     setattr(self, key, value)
+#             
+#             def __getitem__(self, key):
+#                 return getattr(self, key, None)
+#         
+#         doc_obj = DocumentObj(document)
+#         return render_template('document_view.html', document=doc_obj, now=datetime.now)
+#     except Exception as e:
+#         return f"Ошибка: {str(e)}", 500
+#
+# @app.route('/document/<string:doc_number>')
+# def view_document_by_number(doc_number):
+#     """Просмотр документа по номеру"""
+#     try:
+#         document = db_select('documents', 'doc_number = %s', [doc_number], fetch_one=True)
+#         
+#         if not document:
+#             return "Документ не найден", 404
+#         
+#         class DocumentObj:
+#             def __init__(self, data):
+#                 for key, value in data.items():
+#                     setattr(self, key, value)
+#             
+#             def __getitem__(self, key):
+#                 return getattr(self, key, None)
+#         
+#         doc_obj = DocumentObj(document)
+#         return render_template('document_view.html', document=doc_obj, now=datetime.now)
+#     except Exception as e:
+#         return f"Ошибка: {str(e)}", 500
+#
+# @app.route('/files')
+# def files_history():
+#     """Страница истории файлов"""
+#     return render_template('files_history.html')
 
 
 @app.route('/api/files', methods=['GET'])
