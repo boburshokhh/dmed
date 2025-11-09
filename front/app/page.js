@@ -30,6 +30,7 @@ const translations = {
 }
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false)
   const [language, setLanguage] = useState('ru')
   const [pin, setPin] = useState(['', '', '', ''])
   const [error, setError] = useState('')
@@ -38,9 +39,17 @@ export default function Home() {
   const inputRefs = useRef([])
   const languageMenuRef = useRef(null)
 
+  // Устанавливаем mounted только на клиенте
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   const t = translations[language]
 
   useEffect(() => {
+    // Проверяем, что мы на клиенте
+    if (typeof window === 'undefined') return
+    
     const handleClickOutside = (event) => {
       if (languageMenuRef.current && !languageMenuRef.current.contains(event.target)) {
         setShowLanguageMenu(false)
@@ -140,22 +149,28 @@ export default function Home() {
               onClick={() => setShowLanguageMenu(!showLanguageMenu)}
               className="h-langChip px-4 inline-flex items-center gap-2 bg-chipBg rounded-full border border-inputBorder shadow-sm text-base lg:text-lg font-medium transition-colors hover:border-inputBorderFocus"
             >
-              {language === 'ru' && (
+              {mounted && language === 'ru' && (
                 <>
                   <RU className="w-5 h-4" />
                   <span>Русский</span>
                 </>
               )}
-              {language === 'uz' && (
+              {mounted && language === 'uz' && (
                 <>
                   <UZ className="w-5 h-4" />
                   <span>O'zbekcha</span>
                 </>
               )}
-              {language === 'en' && (
+              {mounted && language === 'en' && (
                 <>
                   <GB className="w-5 h-4" />
                   <span>English</span>
+                </>
+              )}
+              {!mounted && (
+                <>
+                  <RU className="w-5 h-4" />
+                  <span>Русский</span>
                 </>
               )}
             </button>

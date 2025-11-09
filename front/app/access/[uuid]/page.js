@@ -32,7 +32,9 @@ const translations = {
 
 export default function Home() {
   const params = useParams()
-  const uuid = params?.uuid
+  // Безопасное получение UUID - только на клиенте
+  const [uuid, setUuid] = useState(null)
+  const [mounted, setMounted] = useState(false)
   
   const [language, setLanguage] = useState('ru')
   const [pin, setPin] = useState(['', '', '', ''])
@@ -43,6 +45,14 @@ export default function Home() {
   const [loadingDocument, setLoadingDocument] = useState(false)
   const inputRefs = useRef([])
   const languageMenuRef = useRef(null)
+
+  // Устанавливаем mounted и uuid только на клиенте
+  useEffect(() => {
+    setMounted(true)
+    if (params?.uuid) {
+      setUuid(params.uuid)
+    }
+  }, [params])
 
   const t = translations[language]
 
@@ -81,6 +91,9 @@ export default function Home() {
   }, [uuid])
 
   useEffect(() => {
+    // Проверяем, что мы на клиенте
+    if (typeof window === 'undefined') return
+    
     const handleClickOutside = (event) => {
       if (languageMenuRef.current && !languageMenuRef.current.contains(event.target)) {
         setShowLanguageMenu(false)
@@ -183,22 +196,28 @@ export default function Home() {
               onClick={() => setShowLanguageMenu(!showLanguageMenu)}
               className="h-langChip px-4 inline-flex items-center gap-2 bg-chipBg rounded-full border border-inputBorder shadow-sm text-base lg:text-lg font-medium transition-colors hover:border-inputBorderFocus"
             >
-              {language === 'ru' && (
+              {mounted && language === 'ru' && (
                 <>
                   <RU className="w-5 h-4" />
                   <span>Русский</span>
                 </>
               )}
-              {language === 'uz' && (
+              {mounted && language === 'uz' && (
                 <>
                   <UZ className="w-5 h-4" />
                   <span>O'zbekcha</span>
                 </>
               )}
-              {language === 'en' && (
+              {mounted && language === 'en' && (
                 <>
                   <GB className="w-5 h-4" />
                   <span>English</span>
+                </>
+              )}
+              {!mounted && (
+                <>
+                  <RU className="w-5 h-4" />
+                  <span>Русский</span>
                 </>
               )}
             </button>

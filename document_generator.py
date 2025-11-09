@@ -127,9 +127,16 @@ def fill_docx_template(document_data, template_path=None, app=None):
                 # Сохраняем выравнивание и стиль параграфа
                 alignment = paragraph.alignment
                 original_font_size = None
+                original_bold = None
+                original_italic = None
+                
+                # Сохраняем форматирование из первого run (если есть)
                 if paragraph.runs:
                     try:
-                        original_font_size = paragraph.runs[0].font.size
+                        first_run = paragraph.runs[0]
+                        original_font_size = first_run.font.size
+                        original_bold = first_run.font.bold
+                        original_italic = first_run.font.italic
                     except:
                         pass
                 
@@ -239,6 +246,7 @@ def fill_docx_template(document_data, template_path=None, app=None):
                             except Exception as extra_bold_error:
                                 print(f"[WARNING] Дополнительная установка жирности не сработала: {extra_bold_error}")
                         else:
+                            # Значение переменной - применяем стандартное форматирование (не жирное)
                             try:
                                 run.font.name = font_name
                             except:
@@ -251,7 +259,13 @@ def fill_docx_template(document_data, template_path=None, app=None):
                                     run.font.size = original_font_size
                                 except:
                                     pass
+                            # ВАЖНО: Убеждаемся, что значение переменной НЕ жирное (если не PIN-код)
+                            try:
+                                run.font.bold = False
+                            except:
+                                pass
                     else:
+                        # Обычный текст (не переменная) - сохраняем оригинальное форматирование
                         run = paragraph.add_run(part)
                         try:
                             run.font.name = font_name
@@ -263,6 +277,17 @@ def fill_docx_template(document_data, template_path=None, app=None):
                         if original_font_size:
                             try:
                                 run.font.size = original_font_size
+                            except:
+                                pass
+                        # ВАЖНО: Сохраняем оригинальное форматирование (bold/italic) для обычного текста
+                        if original_bold is not None:
+                            try:
+                                run.font.bold = original_bold
+                            except:
+                                pass
+                        if original_italic is not None:
+                            try:
+                                run.font.italic = original_italic
                             except:
                                 pass
             except Exception as e:
