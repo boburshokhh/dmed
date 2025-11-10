@@ -167,6 +167,87 @@ except Exception as e:
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['TEMPLATE_FOLDER'], exist_ok=True)
 
+# Проверка статуса MinIO
+def check_minio_status():
+    """Проверяет и выводит статус MinIO хранилища"""
+    print("\n" + "="*60)
+    print("ПРОВЕРКА СТАТУСА MINIO")
+    print("="*60)
+    
+    from config import (
+        MINIO_ENABLED, MINIO_ENDPOINT, MINIO_ACCESS_KEY, 
+        MINIO_SECURE, MINIO_BUCKET_NAME, UPLOAD_FOLDER
+    )
+    from storage import MINIO_AVAILABLE
+    
+    print(f"\n1. Настройки из config.py:")
+    print(f"   MINIO_ENABLED: {MINIO_ENABLED}")
+    print(f"   MINIO_ENDPOINT: {MINIO_ENDPOINT}")
+    print(f"   MINIO_SECURE: {MINIO_SECURE}")
+    print(f"   MINIO_BUCKET_NAME: {MINIO_BUCKET_NAME}")
+    print(f"   MINIO_ACCESS_KEY: {'*' * len(MINIO_ACCESS_KEY) if MINIO_ACCESS_KEY else 'НЕ УСТАНОВЛЕН'}")
+    print(f"   MINIO_AVAILABLE (библиотека установлена): {MINIO_AVAILABLE}")
+    
+    print(f"\n2. Статус StorageManager:")
+    print(f"   use_minio: {storage_manager.use_minio}")
+    print(f"   minio_client: {'✓ Подключен' if storage_manager.minio_client else '✗ Не подключен'}")
+    print(f"   bucket_name: {storage_manager.bucket_name}")
+    
+    if storage_manager.use_minio and storage_manager.minio_client:
+        try:
+            # Проверяем подключение к MinIO
+            bucket_exists = storage_manager.minio_client.bucket_exists(storage_manager.bucket_name)
+            print(f"\n3. Проверка подключения:")
+            print(f"   ✓ Подключение к MinIO успешно")
+            print(f"   ✓ Bucket '{storage_manager.bucket_name}' существует: {bucket_exists}")
+            
+            # Пытаемся получить список объектов (первые 5)
+            try:
+                objects = list(storage_manager.minio_client.list_objects(
+                    storage_manager.bucket_name,
+                    recursive=False
+                ))
+                object_count = len(objects)
+                print(f"   ✓ Количество объектов в bucket: {object_count}")
+                if object_count > 0:
+                    print(f"   ✓ Примеры объектов (первые 3):")
+                    for i, obj in enumerate(objects[:3], 1):
+                        print(f"      {i}. {obj.object_name} ({obj.size} байт)")
+            except Exception as list_error:
+                print(f"   ⚠ Не удалось получить список объектов: {list_error}")
+            
+            print(f"\n✓ MinIO работает корректно!")
+            
+        except Exception as e:
+            print(f"\n3. Проверка подключения:")
+            print(f"   ✗ Ошибка при проверке MinIO: {e}")
+            import traceback
+            print(f"   Детали ошибки:")
+            print(traceback.format_exc())
+    else:
+        print(f"\n3. Причина отключения MinIO:")
+        if not MINIO_ENABLED:
+            print(f"   ✗ MinIO отключен в конфигурации (MINIO_ENABLED=False)")
+        elif not MINIO_AVAILABLE:
+            print(f"   ✗ Библиотека minio не установлена")
+        elif not MINIO_ENDPOINT or not MINIO_ACCESS_KEY or not MINIO_SECRET_KEY:
+            print(f"   ✗ Не указаны обязательные параметры подключения")
+            if not MINIO_ENDPOINT:
+                print(f"     - MINIO_ENDPOINT не установлен")
+            if not MINIO_ACCESS_KEY:
+                print(f"     - MINIO_ACCESS_KEY не установлен")
+            if not MINIO_SECRET_KEY:
+                print(f"     - MINIO_SECRET_KEY не установлен")
+        else:
+            print(f"   ✗ Неизвестная причина")
+        print(f"\n⚠ MinIO не используется, будет использоваться локальное хранилище")
+        print(f"   Локальная папка: {UPLOAD_FOLDER}")
+    
+    print("="*60 + "\n")
+
+# Выполняем проверку MinIO при запуске приложения
+check_minio_status()
+
 
 # Маршруты
 
@@ -185,6 +266,72 @@ def health_check():
         'message': 'API работает',
         'blueprints': [bp.name for bp in app.blueprints.values()]
     })
+
+
+@app.route('/api/minio/status', methods=['GET'])
+def minio_status():
+    """Проверка статуса MinIO хранилища"""
+    try:
+        from config import (
+            MINIO_ENABLED, MINIO_ENDPOINT, MINIO_ACCESS_KEY, 
+            MINIO_SECURE, MINIO_BUCKET_NAME
+        )
+        from storage import MINIO_AVAILABLE
+        
+        status = {
+            'minio_enabled': MINIO_ENABLED,
+            'minio_available': MINIO_AVAILABLE,
+            'use_minio': storage_manager.use_minio,
+            'minio_client_connected': storage_manager.minio_client is not None,
+            'bucket_name': storage_manager.bucket_name,
+            'endpoint': MINIO_ENDPOINT,
+            'secure': MINIO_SECURE,
+            'access_key_set': bool(MINIO_ACCESS_KEY),
+        }
+        
+        # Если MinIO подключен, проверяем bucket
+        if storage_manager.use_minio and storage_manager.minio_client:
+            try:
+                bucket_exists = storage_manager.minio_client.bucket_exists(storage_manager.bucket_name)
+                status['bucket_exists'] = bucket_exists
+                
+                # Пытаемся получить количество объектов
+                try:
+                    objects = list(storage_manager.minio_client.list_objects(
+                        storage_manager.bucket_name,
+                        recursive=False
+                    ))
+                    status['object_count'] = len(objects)
+                    status['status'] = 'connected'
+                    status['message'] = f'MinIO подключен, bucket существует, объектов: {len(objects)}'
+                except Exception as list_error:
+                    status['status'] = 'connected_with_error'
+                    status['message'] = f'MinIO подключен, но ошибка при получении списка объектов: {str(list_error)}'
+                    status['error'] = str(list_error)
+            except Exception as check_error:
+                status['status'] = 'connection_error'
+                status['message'] = f'Ошибка при проверке MinIO: {str(check_error)}'
+                status['error'] = str(check_error)
+        else:
+            status['status'] = 'disabled'
+            if not MINIO_ENABLED:
+                status['message'] = 'MinIO отключен в конфигурации'
+            elif not MINIO_AVAILABLE:
+                status['message'] = 'Библиотека minio не установлена'
+            elif not MINIO_ENDPOINT or not MINIO_ACCESS_KEY:
+                status['message'] = 'Не указаны обязательные параметры подключения'
+            else:
+                status['message'] = 'MinIO не используется, используется локальное хранилище'
+        
+        return jsonify({
+            'success': True,
+            'minio': status
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 @app.route('/create-document', methods=['POST'])
