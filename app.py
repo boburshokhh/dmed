@@ -242,6 +242,16 @@ def check_minio_status():
             print(f"   ✗ Неизвестная причина")
         print(f"\n⚠ MinIO не используется, будет использоваться локальное хранилище")
         print(f"   Локальная папка: {UPLOAD_FOLDER}")
+        # Выводим абсолютный путь для удобства
+        import os
+        abs_path = os.path.abspath(UPLOAD_FOLDER)
+        print(f"   Абсолютный путь: {abs_path}")
+        # Проверяем существование
+        if os.path.exists(abs_path):
+            file_count = len([f for f in os.listdir(abs_path) if os.path.isfile(os.path.join(abs_path, f))])
+            print(f"   ✓ Папка существует, файлов в папке: {file_count}")
+        else:
+            print(f"   ⚠ Папка не существует (будет создана при первом сохранении)")
     
     print("="*60 + "\n")
 

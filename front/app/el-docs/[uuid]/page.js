@@ -59,7 +59,7 @@ export default function DocumentPage() {
   useEffect(() => {
     // Адаптивная ширина PDF
     const handleResize = () => {
-      const maxWidth = window.innerWidth - 32 // 16px padding с каждой стороны
+      const maxWidth = window.innerWidth - 16 // 16px padding с каждой стороны
       const pdfWidth = Math.min(maxWidth, 1000) // Максимальная ширина 1000px
       setPageWidth(pdfWidth)
     }
@@ -226,17 +226,74 @@ export default function DocumentPage() {
       {/* Print Styles */}
       <style jsx global>{`
         @media print {
-          body * {
-            visibility: hidden;
+          @page {
+            size: A4;
+            margin: 0;
           }
-          .react-pdf__Page__canvas {
-            visibility: visible;
-            position: absolute;
-            left: 0;
-            top: 0;
-          }
-          button {
+          
+          /* Скрываем все элементы кроме PDF */
+          body > *:not(.react-pdf__Document) {
             display: none !important;
+          }
+          
+          /* Показываем только PDF контейнеры */
+          .react-pdf__Document,
+          .react-pdf__Page {
+            display: block !important;
+            visibility: visible !important;
+            page-break-after: always;
+            page-break-inside: avoid;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            height: auto !important;
+          }
+          
+          /* Canvas должен занимать всю ширину страницы */
+          .react-pdf__Page__canvas {
+            display: block !important;
+            visibility: visible !important;
+            width: 100% !important;
+            height: auto !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            page-break-after: always;
+            page-break-inside: avoid;
+          }
+          
+          /* Контейнер страницы */
+          .react-pdf__Page {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          
+          /* Скрываем кнопки и другие элементы */
+          button,
+          .fixed,
+          nav,
+          header,
+          footer {
+            display: none !important;
+          }
+          
+          /* Убираем все отступы */
+          html, body {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          
+          /* Контейнер с PDF */
+          div[class*="flex"] {
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
         }
       `}</style>

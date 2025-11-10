@@ -293,13 +293,15 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
                     <style>
                         @page {{
                             size: A4;
-                            margin: 1.5cm;
+                            margin: 0.5cm;
                         }}
                         body {{
                             font-family: 'Times New Roman', serif;
                             font-size: 11pt;
                             line-height: 1.4;
                             color: #000;
+                            margin: 0;
+                            padding: 0;
                         }}
                         p {{
                             margin: 0.5em 0;
