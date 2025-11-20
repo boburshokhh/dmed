@@ -1,0 +1,14 @@
+[tool.basedpyright]
+# Конфигурация для basedpyright линтера
+# Устанавливаем уровень предупреждений для отсутствующих импортов
+reportMissingImports = "warning"
+reportMissingTypeStubs = false
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+
+# Игнорируем предупреждения для установленных пакетов
+[tool.basedpyright.ignore]
+# Эти пакеты установлены через pip и работают корректно
+# Предупреждения появляются только потому, что линтер не видит их в своем окружении
+
+

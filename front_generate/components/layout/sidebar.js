@@ -13,7 +13,8 @@ import {
   FolderOpen,
   FilePlus,
   List,
-  Menu
+  Menu,
+  QrCode
 } from 'lucide-react'
 import { clearAuth, isSuperAdmin, getAuth } from '@/lib/auth'
 import { useRouter } from 'next/navigation'

@@ -371,6 +371,11 @@ def create_document():
         else:
             issue_date = datetime.now().isoformat()
         
+        # Получаем ID текущего пользователя, если он авторизован
+        current_user_id = None
+        if hasattr(request, 'current_user'):
+            current_user_id = request.current_user.get('user_id')
+        
         document_data = {
             'doc_number': doc_number,
             'pin_code': pin_code,
@@ -391,7 +396,8 @@ def create_document():
             'department_head_name': data.get('department_head_name'),
             'days_off_from': days_off_from if days_off_from else None,
             'days_off_to': days_off_to if days_off_to else None,
-            'issue_date': issue_date
+            'issue_date': issue_date,
+            'created_by': current_user_id  # Сохраняем ID создателя документа (если авторизован)
         }
         
         # Вставляем документ в БД

@@ -115,73 +115,83 @@ def create_logo_image(size=100):
         points.append((x, y))
     
     if len(points) > 2:
-        draw.polygon(points, fill="#0D34B4")
+        # Ярко-синий цвет звездочки как на фото (#0088cc или #229ED9)
+        draw.polygon(points, fill="#0088cc")
     
     return img
 
 
 def generate_qr_code(url):
-    """Генерирует QR-код с логотипом в центре согласно спецификации"""
-    # Спецификация QR-кода:
-    # - error_correction: "H" (High) - позволяет заменить до 30% данных
-    # - quiet_zone_modules: 4 (отступы)
-    # - logo size_ratio: 0.22 (22% от размера QR-кода)
-    # - logo overprint: true (логотип поверх, без белого фона)
-    
-    # Уровень коррекции ошибок H (High) - позволяет заменить до 30% данных
+    """Генерирует QR-код используя qrcode-styled для стиля Telegram"""
     try:
-        ERROR_CORRECT_H = qrcode.constants.ERROR_CORRECT_H
-    except AttributeError:
-        # Fallback для старых версий qrcode
-        ERROR_CORRECT_H = 3
-    
-    qr = qrcode.QRCode(
-        version=None,  # Автоматический выбор версии
-        error_correction=ERROR_CORRECT_H,  # Высокий уровень для вставки логотипа
-        box_size=10,
-        border=4,  # quiet_zone_modules: 4
-    )
-    qr.add_data(url)
-    qr.make(fit=True)
-    
-    # Создаем базовое изображение QR-кода
-    # Стиль: черные модули на белом фоне, квадратные угловые маркеры
-    img = qr.make_image(fill_color="#000000", back_color="#FFFFFF").convert('RGB')
-    
-    # Создаем логотип согласно спецификации
-    # size_ratio: 0.22 (22% от размера QR-кода) - уменьшено в 2 раза от предыдущего
-    qr_size = min(img.size)
-    logo_size = int(qr_size * 0.22)  # Логотип занимает 22% размера QR-кода
-    logo = create_logo_image(size=logo_size)
-    
-    if logo:
-        # Вычисляем позицию для вставки логотипа (центр)
-        img_width, img_height = img.size
-        logo_width, logo_height = logo.size
+        from qrcode_styled import QRCodeStyled
         
-        # Позиция для вставки (центр)
-        pos = ((img_width - logo_width) // 2, (img_height - logo_height) // 2)
+        qr = QRCodeStyled()
         
-        # Конвертируем изображение QR-кода в RGBA для поддержки прозрачности
-        img = img.convert('RGBA')
+        # Создаем логотип (звездочку)
+        logo_img = create_logo_image(size=200)  # Генерируем логотип достаточного размера
         
-        # Создаем белый квадрат в центре, чтобы убрать черные модули QR-кода под иконкой
-        # Размер белого квадрата немного больше логотипа для лучшей видимости
-        white_square_size = int(logo_size * 1.3)  # На 30% больше логотипа
-        white_square_pos = (
-            (img_width - white_square_size) // 2,
-            (img_height - white_square_size) // 2
+        # Генерируем QR-код с логотипом в центре
+        # qrcode-styled по умолчанию делает красивые скругленные коды
+        img = qr.get_image(url, image=logo_img)
+        
+        # Проверяем тип изображения и конвертируем если нужно
+        # qrcode-styled возвращает PIL Image, но может быть в разных режимах
+        if isinstance(img, Image.Image):
+            # Это PIL Image, проверяем режим
+            if img.mode != 'RGBA':
+                try:
+                    img = img.convert('RGBA')
+                except Exception as conv_error:
+                    print(f"[WARNING] Не удалось конвертировать в RGBA: {conv_error}, используем текущий режим")
+        else:
+            # Если это не PIL Image, пробуем получить его через save/load
+            try:
+                import io
+                buffer = io.BytesIO()
+                img.save(buffer, 'PNG')  # Убираем format=, используем позиционный аргумент
+                buffer.seek(0)
+                img = Image.open(buffer).convert('RGBA')
+            except Exception as save_error:
+                print(f"[WARNING] Не удалось обработать изображение: {save_error}")
+                # Fallback - создаем пустое изображение
+                img = Image.new('RGBA', (500, 500), (255, 255, 255, 255))
+        
+        return img
+        
+    except Exception as e:
+        # Fallback на обычный qrcode если qrcode-styled не работает
+        print(f"[WARNING] qrcode-styled не работает ({e}), используем обычный qrcode")
+        try:
+            ERROR_CORRECT_H = qrcode.constants.ERROR_CORRECT_H
+        except AttributeError:
+            ERROR_CORRECT_H = 3
+        
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=ERROR_CORRECT_H,
+            box_size=10,
+            border=4,
         )
+        qr.add_data(url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="#000000", back_color="#FFFFFF").convert('RGBA')
         
-        # Создаем белый квадрат для удаления черных модулей QR-кода под иконкой
-        white_square = Image.new('RGBA', (white_square_size, white_square_size), (255, 255, 255, 255))
-        img.paste(white_square, white_square_pos, white_square)
+        # Добавляем логотип вручную как раньше
+        qr_size = min(img.size)
+        logo_size = int(qr_size * 0.22)
+        logo = create_logo_image(size=logo_size)
         
-        # Вставляем логотип поверх белого квадрата
-        img.paste(logo, pos, logo)
-        
-        # Конвертируем обратно в RGB
-        img = img.convert('RGB')
-    
-    return img
-
+        if logo:
+            img_width, img_height = img.size
+            logo_width, logo_height = logo.size
+            pos = ((img_width - logo_width) // 2, (img_height - logo_height) // 2)
+            white_bg_size = int(logo_size * 1.4)
+            white_bg_pos = ((img_width - white_bg_size) // 2, (img_height - white_bg_size) // 2)
+            white_bg = Image.new('RGBA', (white_bg_size, white_bg_size), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(white_bg)
+            draw.ellipse((0, 0, white_bg_size, white_bg_size), fill=(255, 255, 255, 255))
+            img.paste(white_bg, white_bg_pos, white_bg)
+            img.paste(logo, pos, logo)
+            
+        return img

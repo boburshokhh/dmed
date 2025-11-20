@@ -56,3 +56,32 @@ db_insert('users', {
 })
 ```
 
+### Миграция 002: Добавление поля created_by в таблицу documents
+
+Эта миграция добавляет поле `created_by` в таблицу `documents` для отслеживания, кто создал документ.
+
+**Выполнение:**
+
+```bash
+psql -h 45.138.159.141 -U dmed_app -d dmed -f migrations/002_add_created_by_to_documents.sql
+```
+
+Или через Python:
+
+```python
+from database import db_query
+
+with open('migrations/002_add_created_by_to_documents.sql', 'r', encoding='utf-8') as f:
+    sql = f.read()
+    db_query(sql)
+```
+
+**Что делает миграция:**
+- Добавляет поле `created_by INTEGER REFERENCES users(id)` в таблицу `documents`
+- Создает индекс `idx_documents_created_by` для быстрого поиска документов по создателю
+- Добавляет комментарий к полю
+
+**После миграции:**
+- При создании документа через API (`/api/documents/generate`) автоматически сохраняется ID пользователя, создавшего документ
+- При получении списка документов (`/api/documents`) возвращается информация о создателе (username и email)
+

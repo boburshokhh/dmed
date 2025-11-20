@@ -1,0 +1,20 @@
+# Конфигурация для basedpyright
+# Игнорируем предупреждения об отсутствующих импортах для установленных пакетов
+
+[tool.basedpyright]
+reportMissingImports = "warning"
+reportMissingTypeStubs = false
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+
+# Игнорируем конкретные модули, которые установлены, но линтер их не видит
+[tool.basedpyright.ignore]
+# Эти пакеты установлены через pip, но линтер может их не видеть
+ignore = [
+    "docx",
+    "docx.*",
+    "flask",
+    "flask.*"
+]
+
+

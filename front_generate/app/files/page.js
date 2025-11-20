@@ -360,8 +360,25 @@ export default function FilesPage() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                  const apiBase = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'https://dmed.gubkin.uz'
-                                  window.open(`${apiBase}/api/files/download/${encodeURIComponent(file.name)}`, '_blank')
+                                  // Используем функцию getBaseURL для правильного формирования URL
+                                  function getBaseURL() {
+                                    let baseUrl = process.env.NEXT_PUBLIC_API_URL 
+                                      || process.env.API_URL 
+                                      || 'http://localhost:5000'
+                                    
+                                    // Убираем trailing slash если есть
+                                    baseUrl = baseUrl.replace(/\/+$/, '')
+                                    
+                                    // Добавляем /api только если его еще нет
+                                    if (!baseUrl.endsWith('/api')) {
+                                      baseUrl = `${baseUrl}/api`
+                                    }
+                                    
+                                    return baseUrl
+                                  }
+                                  
+                                  const apiBase = getBaseURL()
+                                  window.open(`${apiBase}/files/download/${encodeURIComponent(file.name)}`, '_blank')
                                 }}
                                 className="h-8 w-8 sm:h-10 sm:w-10 p-0"
                               >

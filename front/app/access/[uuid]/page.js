@@ -114,6 +114,15 @@ export default function Home() {
 
     if (value && index < 3) {
       inputRefs.current[index + 1]?.focus()
+    } else if (value && index === 3) {
+      // Автоматически отправляем форму после ввода последней цифры
+      // Используем setTimeout для того, чтобы состояние успело обновиться
+      setTimeout(() => {
+        const pinCode = newPin.join('')
+        if (pinCode.length === 4) {
+          handleVerifyWithPin(pinCode)
+        }
+      }, 0)
     }
   }
 
@@ -131,12 +140,22 @@ export default function Home() {
       setPin(newPin)
       const nextIndex = Math.min(pastedData.length, 3)
       inputRefs.current[nextIndex]?.focus()
+      
+      // Автоматически отправляем форму, если вставлены все 4 цифры
+      if (pastedData.length === 4) {
+        setTimeout(() => {
+          handleVerifyWithPin(pastedData)
+        }, 0)
+      }
     }
   }
 
   const handleVerify = async () => {
     const pinCode = pin.join('')
-    
+    return handleVerifyWithPin(pinCode)
+  }
+
+  const handleVerifyWithPin = async (pinCode) => {
     if (pinCode.length !== 4) {
       setError(t.error)
       return
@@ -196,28 +215,22 @@ export default function Home() {
               onClick={() => setShowLanguageMenu(!showLanguageMenu)}
               className="h-langChip px-4 inline-flex items-center gap-2 bg-chipBg rounded-full border border-inputBorder shadow-sm text-base lg:text-lg font-medium transition-colors hover:border-inputBorderFocus"
             >
-              {mounted && language === 'ru' && (
+              {language === 'ru' && (
                 <>
                   <RU className="w-5 h-4" />
                   <span>Русский</span>
                 </>
               )}
-              {mounted && language === 'uz' && (
+              {language === 'uz' && (
                 <>
                   <UZ className="w-5 h-4" />
                   <span>O'zbekcha</span>
                 </>
               )}
-              {mounted && language === 'en' && (
+              {language === 'en' && (
                 <>
                   <GB className="w-5 h-4" />
                   <span>English</span>
-                </>
-              )}
-              {!mounted && (
-                <>
-                  <RU className="w-5 h-4" />
-                  <span>Русский</span>
                 </>
               )}
             </button>

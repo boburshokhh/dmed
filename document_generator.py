@@ -121,19 +121,33 @@ def fill_docx_template(document_data, template_path=None, app=None):
         
         # Функция для замены плейсхолдеров с сохранением форматирования
         def replace_placeholders_with_font(paragraph, replacements, font_name=DOCX_FONT_NAME):
-            """Заменяет плейсхолдеры в параграфе, устанавливая шрифт Times New Roman для замененных значений."""
+            """Заменяет плейсхолдеры в параграфе, устанавливая шрифт Arial для замененных значений."""
             try:
+                # Получаем полный текст параграфа, объединяя все runs
                 full_text = paragraph.text
+                
+                # Дополнительная проверка: собираем текст из всех runs по отдельности
+                # на случай, если переменная разбита на несколько runs
+                runs_text = []
+                for run in paragraph.runs:
+                    runs_text.append(run.text)
+                combined_runs_text = ''.join(runs_text)
+                
+                # Используем более полный текст для проверки
+                check_text = full_text if len(full_text) >= len(combined_runs_text) else combined_runs_text
                 
                 # Проверяем, есть ли плейсхолдеры
                 has_placeholder = False
+                found_placeholders = []
                 for key in replacements.keys():
-                    if key in full_text:
+                    if key in check_text:
                         has_placeholder = True
-                        break
+                        found_placeholders.append(key)
                 
                 if not has_placeholder:
                     return
+                
+                print(f"[DEBUG] Найдены плейсхолдеры в параграфе: {found_placeholders}, текст: {check_text[:100]}")
                 
                 # Сохраняем выравнивание и стиль параграфа
                 alignment = paragraph.alignment
@@ -141,9 +155,15 @@ def fill_docx_template(document_data, template_path=None, app=None):
                 original_bold = None
                 original_italic = None
                 
-                # Сохраняем форматирование из первого run (если есть)
+                # Проверяем, есть ли жирный текст в параграфе (названия переменных должны быть жирными)
+                has_bold_text = False
                 if paragraph.runs:
                     try:
+                        # Проверяем все runs на наличие жирного текста
+                        for run in paragraph.runs:
+                            if run.font.bold:
+                                has_bold_text = True
+                                break
                         first_run = paragraph.runs[0]
                         original_font_size = first_run.font.size
                         original_bold = first_run.font.bold
@@ -151,14 +171,24 @@ def fill_docx_template(document_data, template_path=None, app=None):
                     except:
                         pass
                 
+                # Если в параграфе есть переменные, названия должны быть жирными
+                # Устанавливаем original_bold = True для названий переменных
+                if has_placeholder:
+                    original_bold = True
+                
                 # Очищаем параграф
                 paragraph.clear()
                 if alignment:
                     paragraph.alignment = alignment
                 
+                # Используем check_text для разбиения (более полный текст)
+                text_to_process = check_text if check_text else full_text
+                
                 # Разбиваем текст на части и обрабатываем каждый плейсхолдер отдельно
                 pattern = '|'.join(re.escape(key) for key in replacements.keys())
-                parts = re.split(f'({pattern})', full_text)
+                parts = re.split(f'({pattern})', text_to_process)
+                
+                print(f"[DEBUG] Разбит текст на {len(parts)} частей, найдено плейсхолдеров: {len([p for p in parts if p in replacements])}")
                 
                 for part in parts:
                     if not part:
@@ -173,7 +203,7 @@ def fill_docx_template(document_data, template_path=None, app=None):
                             # Большой PIN-код - применяем ко всем вхождениям
                             # Используем шрифты, доступные на Linux
                             # Сначала устанавливаем размер - это критично
-                            pin_size = Pt(24)  # Размер шрифта для PIN-кода
+                            pin_size = Pt(14)  # Размер шрифта для PIN-кода (уменьшен на 10 единиц)
                             
                             # Если это первое вхождение, отмечаем его
                             if not pin_code_first_occurrence['found']:
@@ -202,9 +232,9 @@ def fill_docx_template(document_data, template_path=None, app=None):
                                     print(f"[WARNING] Альтернативный способ установки размера не сработал: {xml_error}")
                                     pass
                             
-                            # Пробуем установить шрифт, который точно есть на Linux
+                            # Устанавливаем шрифт Arial
                             font_set = False
-                            for font_name_linux in ['Arial', 'DejaVu Sans', 'Liberation Sans', 'Calibri', 'Helvetica', 'Times New Roman']:
+                            for font_name_linux in ['Arial', 'DejaVu Sans', 'Liberation Sans', 'Calibri', 'Helvetica']:
                                 try:
                                     run.font.name = font_name_linux
                                     font_set = True
@@ -257,12 +287,12 @@ def fill_docx_template(document_data, template_path=None, app=None):
                             except Exception as extra_bold_error:
                                 print(f"[WARNING] Дополнительная установка жирности не сработала: {extra_bold_error}")
                         else:
-                            # Значение переменной - применяем стандартное форматирование (не жирное)
+                            # Значение переменной - применяем стандартное форматирование
                             try:
-                                run.font.name = font_name
+                                run.font.name = 'Arial'
                             except:
                                 try:
-                                    run.font.name = 'Times New Roman'
+                                    run.font.name = font_name
                                 except:
                                     pass
                             if original_font_size:
@@ -270,19 +300,44 @@ def fill_docx_template(document_data, template_path=None, app=None):
                                     run.font.size = original_font_size
                                 except:
                                     pass
-                            # ВАЖНО: Убеждаемся, что значение переменной НЕ жирное (если не PIN-код)
-                            try:
-                                run.font.bold = False
-                            except:
-                                pass
+                            
+                            # Специальная обработка для {{issue_date}} и {{doc_number}} - делаем жирными
+                            if part == '{{issue_date}}' or part == '{{doc_number}}':
+                                try:
+                                    run.font.bold = True
+                                except:
+                                    pass
+                                # Дополнительно через XML для гарантии
+                                try:
+                                    from docx.oxml.ns import qn
+                                    from docx.oxml import OxmlElement
+                                    if run._element.rPr is None:
+                                        run._element.get_or_add_rPr()
+                                    # Убеждаемся, что жирность установлена
+                                    b_elements = run._element.rPr.findall(qn('w:b'))
+                                    if not b_elements:
+                                        b = OxmlElement('w:b')
+                                        b.set(qn('w:val'), 'true')
+                                        run._element.rPr.append(b)
+                                    else:
+                                        for b in b_elements:
+                                            b.set(qn('w:val'), 'true')
+                                except Exception as xml_bold_error:
+                                    print(f"[WARNING] Не удалось установить жирность для {part} через XML: {xml_bold_error}")
+                            else:
+                                # ВАЖНО: Убеждаемся, что значение переменной НЕ жирное (если не PIN-код, issue_date или doc_number)
+                                try:
+                                    run.font.bold = False
+                                except:
+                                    pass
                     else:
-                        # Обычный текст (не переменная) - сохраняем оригинальное форматирование
+                        # Обычный текст (не переменная) - это названия переменных, должны быть жирными
                         run = paragraph.add_run(part)
                         try:
-                            run.font.name = font_name
+                            run.font.name = 'Arial'
                         except:
                             try:
-                                run.font.name = 'Times New Roman'
+                                run.font.name = font_name
                             except:
                                 pass
                         if original_font_size:
@@ -290,26 +345,54 @@ def fill_docx_template(document_data, template_path=None, app=None):
                                 run.font.size = original_font_size
                             except:
                                 pass
-                        # ВАЖНО: Сохраняем оригинальное форматирование (bold/italic) для обычного текста
-                        if original_bold is not None:
-                            try:
-                                run.font.bold = original_bold
-                            except:
-                                pass
+                        # ВАЖНО: Названия переменных должны быть жирными
+                        try:
+                            run.font.bold = True
+                        except:
+                            pass
+                        # Дополнительно через XML для гарантии
+                        try:
+                            from docx.oxml.ns import qn
+                            from docx.oxml import OxmlElement
+                            if run._element.rPr is None:
+                                run._element.get_or_add_rPr()
+                            # Убеждаемся, что жирность установлена
+                            b_elements = run._element.rPr.findall(qn('w:b'))
+                            if not b_elements:
+                                b = OxmlElement('w:b')
+                                b.set(qn('w:val'), 'true')
+                                run._element.rPr.append(b)
+                            else:
+                                for b in b_elements:
+                                    b.set(qn('w:val'), 'true')
+                        except Exception as xml_bold_error:
+                            print(f"[WARNING] Не удалось установить жирность для названия переменной через XML: {xml_bold_error}")
+                        # Сохраняем курсив из оригинального форматирования
                         if original_italic is not None:
                             try:
                                 run.font.italic = original_italic
                             except:
                                 pass
+                
+                # Проверяем результат замены
+                final_text = paragraph.text
+                remaining_placeholders = [key for key in replacements.keys() if key in final_text]
+                if remaining_placeholders:
+                    print(f"[WARNING] После замены остались плейсхолдеры: {remaining_placeholders}")
+                else:
+                    print(f"[DEBUG] Все плейсхолдеры успешно заменены. Итоговый текст: {final_text[:100]}")
+                    
             except Exception as e:
                 print(f"Ошибка при замене плейсхолдеров в параграфе: {e}")
                 import traceback
                 print(traceback.format_exc())
                 try:
-                    simple_text = full_text
+                    # Fallback: простая замена без сохранения форматирования
+                    simple_text = check_text if 'check_text' in locals() else full_text
                     for key, value in replacements.items():
                         simple_text = simple_text.replace(key, str(value))
                     paragraph.text = simple_text
+                    print(f"[INFO] Использован fallback метод замены")
                 except Exception as fallback_error:
                     print(f"Ошибка при fallback замене: {fallback_error}")
         
@@ -324,25 +407,110 @@ def fill_docx_template(document_data, template_path=None, app=None):
                     for paragraph in cell.paragraphs:
                         replace_placeholders_with_font(paragraph, replacements)
         
-        # Заменяем плейсхолдеры в колонтитулах
-        for section in doc.sections:
+        # Функция для обработки колонтитула (header или footer)
+        def process_header_footer(header_footer, header_footer_name=""):
+            """Обрабатывает все параграфы и таблицы в колонтитуле"""
+            if not header_footer:
+                return
+            
+            try:
+                # Обрабатываем параграфы
+                for paragraph in header_footer.paragraphs:
+                    try:
+                        replace_placeholders_with_font(paragraph, replacements)
+                        print(f"[DEBUG] Обработан параграф в {header_footer_name}: {paragraph.text[:50]}")
+                    except Exception as e:
+                        print(f"[WARNING] Ошибка при обработке параграфа в {header_footer_name}: {e}")
+                
+                # Обрабатываем таблицы
+                for table in header_footer.tables:
+                    try:
+                        for row in table.rows:
+                            for cell in row.cells:
+                                for paragraph in cell.paragraphs:
+                                    try:
+                                        replace_placeholders_with_font(paragraph, replacements)
+                                        print(f"[DEBUG] Обработан параграф в таблице {header_footer_name}: {paragraph.text[:50]}")
+                                    except Exception as e:
+                                        print(f"[WARNING] Ошибка при обработке параграфа в таблице {header_footer_name}: {e}")
+                    except Exception as e:
+                        print(f"[WARNING] Ошибка при обработке таблицы в {header_footer_name}: {e}")
+            except Exception as e:
+                print(f"[WARNING] Ошибка при обработке {header_footer_name}: {e}")
+        
+        # Заменяем плейсхолдеры во всех типах колонтитулов
+        for section_idx, section in enumerate(doc.sections):
+            print(f"[INFO] Обработка секции {section_idx + 1}, колонтитулы:")
+            
+            # Обычные колонтитулы
             if section.header:
-                for paragraph in section.header.paragraphs:
-                    replace_placeholders_with_font(paragraph, replacements)
-                for table in section.header.tables:
-                    for row in table.rows:
-                        for cell in row.cells:
-                            for paragraph in cell.paragraphs:
-                                replace_placeholders_with_font(paragraph, replacements)
+                print(f"[INFO]  - Обычный header найден")
+                process_header_footer(section.header, f"секция {section_idx + 1}, header")
             
             if section.footer:
-                for paragraph in section.footer.paragraphs:
-                    replace_placeholders_with_font(paragraph, replacements)
-                for table in section.footer.tables:
-                    for row in table.rows:
-                        for cell in row.cells:
-                            for paragraph in cell.paragraphs:
-                                replace_placeholders_with_font(paragraph, replacements)
+                print(f"[INFO]  - Обычный footer найден")
+                process_header_footer(section.footer, f"секция {section_idx + 1}, footer")
+            
+            # Колонтитулы первой страницы
+            try:
+                if hasattr(section, 'first_page_header') and section.first_page_header:
+                    print(f"[INFO]  - Header первой страницы найден")
+                    process_header_footer(section.first_page_header, f"секция {section_idx + 1}, first_page_header")
+            except Exception as e:
+                print(f"[DEBUG] first_page_header недоступен: {e}")
+            
+            try:
+                if hasattr(section, 'first_page_footer') and section.first_page_footer:
+                    print(f"[INFO]  - Footer первой страницы найден")
+                    process_header_footer(section.first_page_footer, f"секция {section_idx + 1}, first_page_footer")
+            except Exception as e:
+                print(f"[DEBUG] first_page_footer недоступен: {e}")
+            
+            # Колонтитулы четных/нечетных страниц (если включены)
+            try:
+                if hasattr(section, 'even_page_header') and section.even_page_header:
+                    print(f"[INFO]  - Header четных страниц найден")
+                    process_header_footer(section.even_page_header, f"секция {section_idx + 1}, even_page_header")
+            except Exception as e:
+                print(f"[DEBUG] even_page_header недоступен: {e}")
+            
+            try:
+                if hasattr(section, 'even_page_footer') and section.even_page_footer:
+                    print(f"[INFO]  - Footer четных страниц найден")
+                    process_header_footer(section.even_page_footer, f"секция {section_idx + 1}, even_page_footer")
+            except Exception as e:
+                print(f"[DEBUG] even_page_footer недоступен: {e}")
+            
+            try:
+                if hasattr(section, 'odd_page_header') and section.odd_page_header:
+                    print(f"[INFO]  - Header нечетных страниц найден")
+                    process_header_footer(section.odd_page_header, f"секция {section_idx + 1}, odd_page_header")
+            except Exception as e:
+                print(f"[DEBUG] odd_page_header недоступен: {e}")
+            
+            try:
+                if hasattr(section, 'odd_page_footer') and section.odd_page_footer:
+                    print(f"[INFO]  - Footer нечетных страниц найден")
+                    process_header_footer(section.odd_page_footer, f"секция {section_idx + 1}, odd_page_footer")
+            except Exception as e:
+                print(f"[DEBUG] odd_page_footer недоступен: {e}")
+            
+            # Альтернативный способ доступа к колонтитулам через XML (если стандартный не работает)
+            try:
+                from docx.oxml.ns import qn
+                header_part = section._sectPr.get_or_add_headerReference()
+                footer_part = section._sectPr.get_or_add_footerReference()
+                
+                # Пробуем получить все типы колонтитулов через XML
+                header_refs = section._sectPr.findall(qn('w:headerReference'))
+                footer_refs = section._sectPr.findall(qn('w:footerReference'))
+                
+                if header_refs:
+                    print(f"[INFO]  - Найдено {len(header_refs)} header references через XML")
+                if footer_refs:
+                    print(f"[INFO]  - Найдено {len(footer_refs)} footer references через XML")
+            except Exception as e:
+                print(f"[DEBUG] XML доступ к колонтитулам: {e}")
         
         # Добавляем QR-код
         add_qr_code_to_docx(doc, document_data.get('pin_code', ''), app, document_data.get('uuid', ''))
@@ -466,7 +634,7 @@ def create_default_docx_template():
 
 
 def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
-    """Добавляет QR-код в DOCX документ"""
+    """Добавляет QR-код в DOCX документ с PIN-кодом слева"""
     try:
         # Генерируем URL для QR-кода: используем FRONTEND_URL из конфига
         from config import FRONTEND_URL
@@ -495,21 +663,240 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
         
         qr_placeholder_found = False
         
-        def replace_qr_placeholder(paragraph):
+        def create_pin_qr_table():
+            """Создает таблицу с PIN-кодом слева и QR-кодом справа"""
+            # Создаем таблицу с двумя колонками: PIN-код слева, QR-код справа
+            table = doc.add_table(rows=1, cols=2)
+            # Убираем стиль таблицы чтобы не было видимых границ
+            table.style = None
+            
+            # Настраиваем ширину колонок - делаем компактнее
+            from docx.shared import Cm, Pt
+            table.columns[0].width = Cm(0.7)  # Минимальная колонка для PIN-кода (без отступа)
+            table.columns[1].width = Cm(3.6)  # Колонка для QR-кода
+            
+            # Убираем отступы в ячейках для компактности
+            from docx.oxml.ns import qn
+            from docx.oxml import OxmlElement
+            
+            # Ячейка 1: PIN-код слева (большой жирный текст)
+            cell_pin = table.rows[0].cells[0]
+            from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+            cell_pin.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+            # Убираем отступы в ячейке через XML
+            tc_pr = cell_pin._element.tcPr
+            if tc_pr is None:
+                tc_pr = OxmlElement('w:tcPr')
+                cell_pin._element.append(tc_pr)
+            # Устанавливаем минимальные отступы, уменьшаем отступ справа для сближения с QR-кодом
+            tc_mar = OxmlElement('w:tcMar')
+            for margin in ['top', 'left', 'bottom']:
+                margin_elem = OxmlElement(f'w:{margin}')
+                margin_elem.set(qn('w:w'), '0')
+                margin_elem.set(qn('w:type'), 'dxa')
+                tc_mar.append(margin_elem)
+            # Отступ справа - сильно отрицательный для полного удаления отступа
+            right_margin = OxmlElement('w:right')
+            right_margin.set(qn('w:w'), '-60')  # Большой отрицательный отступ (-60 twips = ~-1mm) для удаления отступа
+            right_margin.set(qn('w:type'), 'dxa')
+            tc_mar.append(right_margin)
+            # Удаляем старый tcMar если есть
+            old_tc_mar = tc_pr.find(qn('w:tcMar'))
+            if old_tc_mar is not None:
+                tc_pr.remove(old_tc_mar)
+            tc_pr.append(tc_mar)
+            para_pin = cell_pin.paragraphs[0]
+            para_pin.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            # Убираем отступы параграфа
+            para_pin_format = para_pin.paragraph_format
+            para_pin_format.space_before = Pt(0)
+            para_pin_format.space_after = Pt(0)
+            para_pin_format.left_indent = Pt(0)
+            para_pin_format.right_indent = Pt(0)
+            run_pin = para_pin.add_run(str(pin_code))
+            run_pin.font.size = Pt(18)  # Размер шрифта для PIN-кода (уменьшен на 10 единиц)
+            run_pin.font.bold = True
+            try:
+                run_pin.font.name = 'Arial'
+            except:
+                try:
+                    run_pin.font.name = 'DejaVu Sans'
+                except:
+                    pass
+            
+            # Ячейка 2: QR-код справа
+            cell_qr = table.rows[0].cells[1]
+            cell_qr.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+            # Убираем отступы в ячейке через XML
+            tc_pr_qr = cell_qr._element.tcPr
+            if tc_pr_qr is None:
+                tc_pr_qr = OxmlElement('w:tcPr')
+                cell_qr._element.append(tc_pr_qr)
+            # Устанавливаем минимальные отступы, чтобы QR-код не обрезался
+            # Особенно важен отступ слева
+            tc_mar_qr = OxmlElement('w:tcMar')
+            for margin in ['top', 'bottom', 'right']:
+                margin_elem = OxmlElement(f'w:{margin}')
+                margin_elem.set(qn('w:w'), '0')
+                margin_elem.set(qn('w:type'), 'dxa')
+                tc_mar_qr.append(margin_elem)
+            # Отступ слева - отрицательный для полного удаления отступа
+            left_margin = OxmlElement('w:left')
+            left_margin.set(qn('w:w'), '-60')  # Большой отрицательный отступ (-60 twips = ~-1mm) для удаления отступа
+            left_margin.set(qn('w:type'), 'dxa')
+            tc_mar_qr.append(left_margin)
+            # Удаляем старый tcMar если есть
+            old_tc_mar_qr = tc_pr_qr.find(qn('w:tcMar'))
+            if old_tc_mar_qr is not None:
+                tc_pr_qr.remove(old_tc_mar_qr)
+            tc_pr_qr.append(tc_mar_qr)
+            para_qr = cell_qr.paragraphs[0]
+            # Выравниваем по левому краю (сдвигаем влево, но без обрезки)
+            para_qr.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            # Убираем отступы параграфа
+            para_qr_format = para_qr.paragraph_format
+            para_qr_format.space_before = Pt(0)
+            para_qr_format.space_after = Pt(0)
+            # Убираем отрицательный отступ, чтобы не обрезать QR-код
+            qr_width_inches = 1.4
+            para_qr_format.left_indent = Pt(0)  # Нулевой отступ, чтобы не обрезать QR-код
+            para_qr_format.right_indent = Pt(0)
+            run_qr = para_qr.add_run()
+            # Размер QR-кода (немного уменьшен)
+            run_qr.add_picture(qr_temp_path, width=Inches(qr_width_inches))
+            
+            # Выравниваем таблицу по левому краю
+            table.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            
+            return table
+        
+        def replace_qr_placeholder(paragraph, in_table_cell=False, cell=None):
+            """Заменяет плейсхолдер QR-кода на таблицу с PIN-кодом слева и QR-кодом справа"""
             nonlocal qr_placeholder_found
-            if '{{qr_code}}' in paragraph.text:
+            if '{{qr_code}}' in paragraph.text or '{{pin_code_with_qr}}' in paragraph.text:
                 qr_placeholder_found = True
-                alignment = paragraph.alignment
-                paragraph.clear()
-                if alignment:
-                    paragraph.alignment = alignment
-                run = paragraph.add_run()
-                run.add_picture(qr_temp_path, width=Inches(1.5))
+                
+                if in_table_cell and cell:
+                    # Если мы в ячейке таблицы, создаем вложенную таблицу
+                    # Очищаем ячейку
+                    cell.text = ''
+                    
+                    # Создаем вложенную таблицу в ячейке
+                    inner_table = cell.add_table(rows=1, cols=2)
+                    # Убираем стиль таблицы
+                    inner_table.style = None
+                    from docx.shared import Cm, Pt
+                    # Уменьшаем ширину колонок для компактности
+                    inner_table.columns[0].width = Cm(0.7)  # Минимальная для полного удаления отступа
+                    inner_table.columns[1].width = Cm(3.5)  # Колонка для QR-кода
+                    
+                    # Убираем отступы в ячейках
+                    from docx.oxml.ns import qn
+                    from docx.oxml import OxmlElement
+                    
+                    # Ячейка 1: PIN-код
+                    inner_cell_pin = inner_table.rows[0].cells[0]
+                    from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+                    inner_cell_pin.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                    # Убираем отступы через XML
+                    tc_pr_pin = inner_cell_pin._element.tcPr
+                    if tc_pr_pin is None:
+                        tc_pr_pin = OxmlElement('w:tcPr')
+                        inner_cell_pin._element.append(tc_pr_pin)
+                    # Устанавливаем минимальные отступы, уменьшаем отступ справа для сближения с QR-кодом
+                    tc_mar_pin = OxmlElement('w:tcMar')
+                    for margin in ['top', 'left', 'bottom']:
+                        margin_elem = OxmlElement(f'w:{margin}')
+                        margin_elem.set(qn('w:w'), '0')
+                        margin_elem.set(qn('w:type'), 'dxa')
+                        tc_mar_pin.append(margin_elem)
+                    # Отступ справа - сильно отрицательный для полного удаления отступа
+                    right_margin_pin = OxmlElement('w:right')
+                    right_margin_pin.set(qn('w:w'), '-60')  # Большой отрицательный отступ (-60 twips = ~-1mm) для удаления отступа
+                    right_margin_pin.set(qn('w:type'), 'dxa')
+                    tc_mar_pin.append(right_margin_pin)
+                    old_tc_mar_pin = tc_pr_pin.find(qn('w:tcMar'))
+                    if old_tc_mar_pin is not None:
+                        tc_pr_pin.remove(old_tc_mar_pin)
+                    tc_pr_pin.append(tc_mar_pin)
+                    para_pin = inner_cell_pin.paragraphs[0]
+                    para_pin.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    # Убираем отступы параграфа
+                    para_pin_format = para_pin.paragraph_format
+                    para_pin_format.space_before = Pt(0)
+                    para_pin_format.space_after = Pt(0)
+                    para_pin_format.left_indent = Pt(0)
+                    para_pin_format.right_indent = Pt(0)
+                    run_pin = para_pin.add_run(str(pin_code))
+                    run_pin.font.size = Pt(24)  # Размер шрифта для PIN-кода (уменьшен на 10 единиц)
+                    run_pin.font.bold = True
+                    try:
+                        run_pin.font.name = 'Arial'
+                    except:
+                        try:
+                            run_pin.font.name = 'DejaVu Sans'
+                        except:
+                            pass
+                    
+                    # Ячейка 2: QR-код
+                    inner_cell_qr = inner_table.rows[0].cells[1]
+                    inner_cell_qr.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+                    # Убираем отступы через XML
+                    tc_pr_qr = inner_cell_qr._element.tcPr
+                    if tc_pr_qr is None:
+                        tc_pr_qr = OxmlElement('w:tcPr')
+                        inner_cell_qr._element.append(tc_pr_qr)
+                    # Устанавливаем минимальные отступы, чтобы QR-код не обрезался
+                    tc_mar_qr = OxmlElement('w:tcMar')
+                    for margin in ['top', 'bottom', 'right']:
+                        margin_elem = OxmlElement(f'w:{margin}')
+                        margin_elem.set(qn('w:w'), '0')
+                        margin_elem.set(qn('w:type'), 'dxa')
+                        tc_mar_qr.append(margin_elem)
+                    # Отступ слева - отрицательный для полного удаления отступа
+                    left_margin = OxmlElement('w:left')
+                    left_margin.set(qn('w:w'), '-60')  # Большой отрицательный отступ (-60 twips = ~-1mm) для удаления отступа
+                    left_margin.set(qn('w:type'), 'dxa')
+                    tc_mar_qr.append(left_margin)
+                    old_tc_mar_qr = tc_pr_qr.find(qn('w:tcMar'))
+                    if old_tc_mar_qr is not None:
+                        tc_pr_qr.remove(old_tc_mar_qr)
+                    tc_pr_qr.append(tc_mar_qr)
+                    para_qr = inner_cell_qr.paragraphs[0]
+                    # Выравниваем по левому краю (сдвигаем влево, но без обрезки)
+                    para_qr.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                    # Убираем отступы параграфа
+                    para_qr_format = para_qr.paragraph_format
+                    para_qr_format.space_before = Pt(0)
+                    para_qr_format.space_after = Pt(0)
+                    # Небольшой отрицательный отступ для сдвига влево (очень маленький, чтобы не обрезать)
+                    qr_width_inches = 1.4
+                    # Отрицательный отступ в 2-3 пикселя для сдвига влево
+                    para_qr_format.left_indent = Pt(0)  # Нулевой отступ, чтобы не обрезать QR-код
+                    para_qr_format.right_indent = Pt(0)
+                    run_qr = para_qr.add_run()
+                    # Размер QR-кода (немного уменьшен)
+                    run_qr.add_picture(qr_temp_path, width=Inches(qr_width_inches))
+                else:
+                    # Если мы в обычном параграфе, создаем таблицу
+                    # Получаем родительский элемент параграфа
+                    parent = paragraph._element.getparent()
+                    
+                    # Создаем таблицу
+                    table = create_pin_qr_table()
+                    
+                    # Вставляем таблицу перед параграфом
+                    table_element = table._element
+                    parent.insert(parent.index(paragraph._element), table_element)
+                    
+                    # Удаляем оригинальный параграф
+                    parent.remove(paragraph._element)
+                
                 return True
             return False
         
         for paragraph in doc.paragraphs:
-            if replace_qr_placeholder(paragraph):
+            if replace_qr_placeholder(paragraph, in_table_cell=False):
                 break
         
         if not qr_placeholder_found:
@@ -517,7 +904,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 for row in table.rows:
                     for cell in row.cells:
                         for paragraph in cell.paragraphs:
-                            if replace_qr_placeholder(paragraph):
+                            if replace_qr_placeholder(paragraph, in_table_cell=True, cell=cell):
                                 qr_placeholder_found = True
                                 break
                         if qr_placeholder_found:
@@ -531,7 +918,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             for section in doc.sections:
                 if section.header:
                     for paragraph in section.header.paragraphs:
-                        if replace_qr_placeholder(paragraph):
+                        if replace_qr_placeholder(paragraph, in_table_cell=False):
                             qr_placeholder_found = True
                             break
                     if not qr_placeholder_found:
@@ -539,7 +926,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                             for row in table.rows:
                                 for cell in row.cells:
                                     for paragraph in cell.paragraphs:
-                                        if replace_qr_placeholder(paragraph):
+                                        if replace_qr_placeholder(paragraph, in_table_cell=True, cell=cell):
                                             qr_placeholder_found = True
                                             break
                                     if qr_placeholder_found:
@@ -554,7 +941,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 
                 if section.footer:
                     for paragraph in section.footer.paragraphs:
-                        if replace_qr_placeholder(paragraph):
+                        if replace_qr_placeholder(paragraph, in_table_cell=False):
                             qr_placeholder_found = True
                             break
                     if not qr_placeholder_found:
@@ -562,7 +949,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                             for row in table.rows:
                                 for cell in row.cells:
                                     for paragraph in cell.paragraphs:
-                                        if replace_qr_placeholder(paragraph):
+                                        if replace_qr_placeholder(paragraph, in_table_cell=True, cell=cell):
                                             qr_placeholder_found = True
                                             break
                                     if qr_placeholder_found:
@@ -576,10 +963,8 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     break
         
         if not qr_placeholder_found:
-            last_para = doc.add_paragraph()
-            last_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = last_para.add_run()
-            run.add_picture(qr_temp_path, width=Inches(1.5))
+            # Если плейсхолдер не найден, добавляем таблицу с PIN-кодом и QR-кодом в конец документа
+            create_pin_qr_table()
         
         if os.path.exists(qr_temp_path):
             os.remove(qr_temp_path)

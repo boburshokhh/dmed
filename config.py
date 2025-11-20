@@ -27,7 +27,7 @@ DOC_NUMBER_PREFIX = os.getenv('DOC_NUMBER_PREFIX', '01ВШ')  # Префикс �
 DOC_NUMBER_FORMAT = os.getenv('DOC_NUMBER_FORMAT', 'date')  # Формат: 'date', 'random', 'sequential'
 
 # Настройки форматирования DOCX
-DOCX_FONT_NAME = os.getenv('DOCX_FONT_NAME', 'Times New Roman')  # Шрифт для переменных в DOCX шаблоне
+DOCX_FONT_NAME = os.getenv('DOCX_FONT_NAME', 'Arial')  # Шрифт для переменных в DOCX шаблоне
 
 # MinIO конфигурация
 MINIO_ENABLED = os.getenv('MINIO_ENABLED', 'True').lower() == 'true'

@@ -85,6 +85,9 @@ def login():
     """Вход в систему"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'message': 'Данные не получены'}), 400
+            
         username = data.get('username')
         password = data.get('password')
         
@@ -95,24 +98,53 @@ def login():
         user = db_select('users', where_clause='username = %s', params=[username], fetch_one=True)
         
         if not user:
+            print(f"[AUTH] Попытка входа: пользователь '{username}' не найден")
             return jsonify({'success': False, 'message': 'Неверное имя пользователя или пароль'}), 401
         
         if not user.get('is_active'):
+            print(f"[AUTH] Попытка входа: учетная запись '{username}' деактивирована")
             return jsonify({'success': False, 'message': 'Учетная запись деактивирована'}), 403
         
         # Проверяем пароль
         password_hash = user.get('password_hash')
-        if not bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8')):
+        if not password_hash:
+            print(f"[AUTH] Ошибка: у пользователя '{username}' отсутствует password_hash")
+            return jsonify({'success': False, 'message': 'Ошибка проверки пароля'}), 500
+        
+        # Обрабатываем password_hash - может быть строкой или bytes
+        try:
+            # Если password_hash - строка, конвертируем в bytes
+            if isinstance(password_hash, str):
+                password_hash_bytes = password_hash.encode('utf-8')
+            elif isinstance(password_hash, bytes):
+                password_hash_bytes = password_hash
+            else:
+                print(f"[AUTH] Ошибка: неверный тип password_hash для пользователя '{username}'")
+                return jsonify({'success': False, 'message': 'Ошибка проверки пароля'}), 500
+            
+            # Проверяем пароль
+            password_bytes = password.encode('utf-8')
+            if not bcrypt.checkpw(password_bytes, password_hash_bytes):
+                print(f"[AUTH] Неверный пароль для пользователя '{username}'")
             return jsonify({'success': False, 'message': 'Неверное имя пользователя или пароль'}), 401
+        except Exception as e:
+            print(f"[AUTH] Ошибка при проверке пароля для '{username}': {str(e)}")
+            return jsonify({'success': False, 'message': 'Ошибка проверки пароля'}), 500
         
         # Обновляем время последнего входа
         try:
             db_update('users', {'last_login': datetime.now()}, 'id = %s', [user['id']])
-        except:
-            pass
+        except Exception as e:
+            print(f"[AUTH] Предупреждение: не удалось обновить last_login для '{username}': {str(e)}")
         
         # Генерируем токен
-        token = generate_token(user['id'], user['username'], user['role'])
+        try:
+            token = generate_token(user['id'], user['username'], user['role'])
+        except Exception as e:
+            print(f"[AUTH] Ошибка генерации токена для '{username}': {str(e)}")
+            return jsonify({'success': False, 'message': 'Ошибка генерации токена'}), 500
+        
+        print(f"[AUTH] Успешный вход пользователя '{username}' (ID: {user['id']}, роль: {user['role']})")
         
         return jsonify({
             'success': True,
@@ -127,6 +159,9 @@ def login():
         })
         
     except Exception as e:
+        print(f"[AUTH] Критическая ошибка при входе: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return jsonify({'success': False, 'message': f'Ошибка входа: {str(e)}'}), 500
 
 

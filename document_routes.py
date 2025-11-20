@@ -22,7 +22,32 @@ def list_documents():
     """Получение списка документов"""
     try:
         from database import db_query
-        result = db_query('SELECT * FROM documents ORDER BY created_at DESC', fetch_all=True)
+        
+        # Получаем роль текущего пользователя
+        current_user = request.current_user
+        user_role = current_user.get('role') if current_user else None
+        
+        # Получаем документы с информацией о создателе (JOIN с таблицей users)
+        # Если пользователь не super_admin, скрываем документы созданные пользователем с ID=1
+        if user_role == 'super_admin':
+            # Супер-админ видит все документы
+            query = """
+                SELECT d.*, u.username as creator_username, u.email as creator_email
+                FROM documents d
+                LEFT JOIN users u ON d.created_by = u.id
+                ORDER BY d.created_at DESC
+            """
+        else:
+            # Обычный админ не видит документы созданные пользователем с ID=1
+            query = """
+                SELECT d.*, u.username as creator_username, u.email as creator_email
+                FROM documents d
+                LEFT JOIN users u ON d.created_by = u.id
+                WHERE d.created_by IS NULL OR d.created_by != 1
+                ORDER BY d.created_at DESC
+            """
+        
+        result = db_query(query, fetch_all=True)
         documents = [dict(row) for row in result] if result else []
         # Убираем чувствительные данные
         for doc in documents:
@@ -56,6 +81,9 @@ def generate_document():
         else:
             issue_date = datetime.now().isoformat()
         
+        # Получаем ID текущего пользователя из токена
+        current_user_id = request.current_user.get('user_id') if hasattr(request, 'current_user') else None
+        
         document_data = {
             'doc_number': doc_number,
             'pin_code': pin_code,
@@ -76,7 +104,8 @@ def generate_document():
             'department_head_name': data.get('department_head_name'),
             'days_off_from': data.get('days_off_from') if data.get('days_off_from') else None,
             'days_off_to': data.get('days_off_to') if data.get('days_off_to') else None,
-            'issue_date': issue_date
+            'issue_date': issue_date,
+            'created_by': current_user_id  # Сохраняем ID создателя документа
         }
         
         # Вставляем документ в БД
@@ -116,7 +145,7 @@ def generate_document():
             'document_id': document_id,
             'doc_number': doc_number,
             'pin_code': pin_code,
-            'download_url': url_for('download_document', doc_id=document_id, _external=True)
+            'download_url': url_for('documents.download_document', doc_id=document_id, _external=True)
         })
         
     except Exception as e:

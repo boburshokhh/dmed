@@ -95,20 +95,75 @@ if sys.platform != 'win32':
 # Проверка доступности LibreOffice
 LIBREOFFICE_AVAILABLE = False
 LIBREOFFICE_ERROR = None
-try:
-    result = subprocess.run(['libreoffice', '--version'], capture_output=True, text=True, timeout=5)
-    if result.returncode == 0:
-        LIBREOFFICE_AVAILABLE = True
-        version = result.stdout.strip()
-        print(f"[INFO] LibreOffice найден: {version}")
+LIBREOFFICE_CMD = None
+
+# Определяем команду для запуска LibreOffice в зависимости от ОС
+if sys.platform == 'win32':
+    # На Windows LibreOffice обычно находится в Program Files
+    possible_paths = [
+        r'C:\Program Files\LibreOffice\program\soffice.exe',
+        r'C:\Program Files (x86)\LibreOffice\program\soffice.exe',
+        os.path.join(os.environ.get('ProgramFiles', ''), 'LibreOffice', 'program', 'soffice.exe'),
+        os.path.join(os.environ.get('ProgramFiles(x86)', ''), 'LibreOffice', 'program', 'soffice.exe'),
+    ]
+    
+    # Также проверяем PATH
+    libreoffice_found = False
+    for path in possible_paths:
+        if path and os.path.exists(path):
+            LIBREOFFICE_CMD = path
+            libreoffice_found = True
+            print(f"[INFO] LibreOffice найден по пути: {path}")
+            break
+    
+    # Если не нашли по путям, пробуем через PATH
+    if not libreoffice_found:
+        try:
+            result = subprocess.run(['soffice', '--version'], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                LIBREOFFICE_CMD = 'soffice'
+                libreoffice_found = True
+                version = result.stdout.strip()
+                print(f"[INFO] LibreOffice найден в PATH: {version}")
+        except:
+            pass
+    
+    if libreoffice_found:
+        # Проверяем, что команда действительно работает
+        try:
+            test_cmd = [LIBREOFFICE_CMD, '--version']
+            result = subprocess.run(test_cmd, capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                LIBREOFFICE_AVAILABLE = True
+                version = result.stdout.strip()
+                print(f"[INFO] LibreOffice доступен: {version}")
+            else:
+                LIBREOFFICE_ERROR = f"LibreOffice вернул код {result.returncode}"
+        except Exception as e:
+            LIBREOFFICE_ERROR = f"Ошибка при проверке LibreOffice: {e}"
     else:
-        LIBREOFFICE_ERROR = f"libreoffice вернул код {result.returncode}"
-except FileNotFoundError:
-    LIBREOFFICE_ERROR = "libreoffice не установлен. Установите: sudo apt-get install libreoffice libreoffice-writer"
-    print(f"[WARNING] {LIBREOFFICE_ERROR}")
-except Exception as e:
-    LIBREOFFICE_ERROR = f"Ошибка при проверке LibreOffice: {e}"
-    print(f"[WARNING] {LIBREOFFICE_ERROR}")
+        LIBREOFFICE_ERROR = "LibreOffice не найден. Установите LibreOffice с https://www.libreoffice.org/download/"
+        print(f"[WARNING] {LIBREOFFICE_ERROR}")
+        print("[INFO] Рекомендуемые пути установки на Windows:")
+        print("  - C:\\Program Files\\LibreOffice\\program\\soffice.exe")
+        print("  - C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe")
+else:
+    # На Linux/Mac используем стандартную команду
+    try:
+        result = subprocess.run(['libreoffice', '--version'], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            LIBREOFFICE_AVAILABLE = True
+            LIBREOFFICE_CMD = 'libreoffice'
+            version = result.stdout.strip()
+            print(f"[INFO] LibreOffice найден: {version}")
+        else:
+            LIBREOFFICE_ERROR = f"libreoffice вернул код {result.returncode}"
+    except FileNotFoundError:
+        LIBREOFFICE_ERROR = "libreoffice не установлен. Установите: sudo apt-get install libreoffice libreoffice-writer"
+        print(f"[WARNING] {LIBREOFFICE_ERROR}")
+    except Exception as e:
+        LIBREOFFICE_ERROR = f"Ошибка при проверке LibreOffice: {e}"
+        print(f"[WARNING] {LIBREOFFICE_ERROR}")
 
 
 def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, app=None):
@@ -148,35 +203,78 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
             upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads/documents') if app else 'uploads/documents'
             output_path = os.path.join(upload_folder, f"{document_uuid}.pdf")
         
-        # Метод 1: docx2pdf (лучший для Windows, приоритет на Windows)
-        if sys.platform == 'win32' and DOCX2PDF_AVAILABLE:
+        # Метод 1: Прямой вызов Word COM API (лучший для Windows, приоритет на Windows)
+        if sys.platform == 'win32' and PYWIN32_AVAILABLE:
+            word = None
+            doc = None
+            com_initialized = False
             try:
-                print(f"[INFO] Используем docx2pdf для конвертации (Windows)...")
-                if sys.platform == 'win32':
+                print(f"[INFO] Используем Word COM API для конвертации (Windows)...")
+                import pythoncom
+                from win32com.client import Dispatch
+                
+                # Инициализируем COM (только если еще не инициализирован)
+                try:
+                    pythoncom.CoInitialize()
+                    com_initialized = True
+                except pythoncom.com_error:
+                    # Уже инициализирован в другом потоке/контексте
+                    com_initialized = False
+                    pass
+                
+                # Проверяем наличие Word
+                try:
+                    word = Dispatch('Word.Application')
+                    word.Visible = False
+                    word.DisplayAlerts = 0  # wdAlertsNone
+                except Exception as e:
+                    raise Exception(f"Не удалось запустить Microsoft Word. Убедитесь, что Word установлен: {e}")
+                
+                # Открываем документ
+                docx_abs_path = os.path.abspath(docx_path)
+                output_abs_path = os.path.abspath(output_path)
+                
+                os.makedirs(os.path.dirname(output_abs_path), exist_ok=True)
+                
+                print(f"[INFO] Открываем документ: {docx_abs_path}")
+                doc = word.Documents.Open(docx_abs_path, ReadOnly=True)
+                
+                # Конвертируем в PDF (17 = wdFormatPDF)
+                wdFormatPDF = 17
+                print(f"[INFO] Конвертируем в PDF: {output_abs_path}")
+                doc.SaveAs(output_abs_path, FileFormat=wdFormatPDF)
+                
+                # Закрываем документ
+                doc.Close(False)
+                
+                # Закрываем Word
+                word.Quit()
+                
+                # Освобождаем COM объекты
+                del doc
+                doc = None
+                del word
+                word = None
+                
+                # Освобождаем COM только если мы его инициализировали
+                if com_initialized:
                     try:
-                        import pythoncom
-                        try:
-                            pythoncom.CoInitialize()
-                        except pythoncom.com_error:
-                            pass
-                    except ImportError:
-                        print("[WARNING] pywin32 не установлен")
+                        pythoncom.CoUninitialize()
+                    except:
+                        pass
                 
-                os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                convert(docx_path, output_path)
-                
-                if os.path.exists(output_path):
-                    file_size = os.path.getsize(output_path)
-                    print(f"[OK] DOCX успешно конвертирован в PDF через docx2pdf: {output_path}, размер: {file_size} байт")
-                    with open(output_path, 'rb') as f:
+                if os.path.exists(output_abs_path):
+                    file_size = os.path.getsize(output_abs_path)
+                    print(f"[OK] DOCX успешно конвертирован в PDF через Word COM API: {output_abs_path}, размер: {file_size} байт")
+                    with open(output_abs_path, 'rb') as f:
                         pdf_data = f.read()
                     
-                    pdf_filename = os.path.basename(output_path)
+                    pdf_filename = os.path.basename(output_abs_path)
                     stored_path = storage_manager.save_file(pdf_data, pdf_filename, 'application/pdf')
                     
-                    if storage_manager.use_minio and os.path.exists(output_path):
+                    if storage_manager.use_minio and os.path.exists(output_abs_path):
                         try:
-                            os.remove(output_path)
+                            os.remove(output_abs_path)
                         except:
                             pass
                     
@@ -188,16 +286,35 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
                     
                     return stored_path
                 else:
-                    raise Exception(f"PDF файл не был создан: {output_path}")
+                    raise Exception(f"PDF файл не был создан: {output_abs_path}")
             except Exception as e:
-                error_msg = f"Ошибка при конвертации через docx2pdf: {e}"
+                # Закрываем Word в случае ошибки
+                if doc:
+                    try:
+                        doc.Close(False)
+                    except:
+                        pass
+                if word:
+                    try:
+                        word.Quit()
+                    except:
+                        pass
+                # Освобождаем COM только если мы его инициализировали
+                if com_initialized:
+                    try:
+                        import pythoncom
+                        pythoncom.CoUninitialize()
+                    except:
+                        pass
+                
+                error_msg = f"Ошибка при конвертации через Word COM API: {e}"
                 print(f"[ERROR] {error_msg}")
                 import traceback
                 print(traceback.format_exc())
-                print("Пробуем альтернативный метод...")
+                print("Пробуем альтернативный метод (LibreOffice)...")
         
-        # Метод 2: LibreOffice (лучший для Linux)
-        if LIBREOFFICE_AVAILABLE:
+        # Метод 2: LibreOffice (работает на Windows и Linux, более надежный чем docx2pdf)
+        if LIBREOFFICE_AVAILABLE and LIBREOFFICE_CMD:
             try:
                 print(f"[INFO] Используем LibreOffice для конвертации...")
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -207,7 +324,7 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
                 
                 # Команда для конвертации
                 cmd = [
-                    'libreoffice',
+                    LIBREOFFICE_CMD,
                     '--headless',
                     '--convert-to', 'pdf',
                     '--outdir', temp_output_dir,
@@ -261,6 +378,54 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
                 print(f"[ERROR] LibreOffice timeout (>60 сек). Пробуем альтернативный метод...")
             except Exception as e:
                 error_msg = f"Ошибка при конвертации через LibreOffice: {e}"
+                print(f"[ERROR] {error_msg}")
+                import traceback
+                print(traceback.format_exc())
+                print("Пробуем альтернативный метод...")
+        
+        # Метод 3: docx2pdf (последний резервный метод для Windows)
+        if sys.platform == 'win32' and DOCX2PDF_AVAILABLE:
+            try:
+                print(f"[INFO] Используем docx2pdf для конвертации (Windows)...")
+                if sys.platform == 'win32':
+                    try:
+                        import pythoncom
+                        try:
+                            pythoncom.CoInitialize()
+                        except pythoncom.com_error:
+                            pass
+                    except ImportError:
+                        print("[WARNING] pywin32 не установлен")
+                
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                convert(docx_path, output_path)
+                
+                if os.path.exists(output_path):
+                    file_size = os.path.getsize(output_path)
+                    print(f"[OK] DOCX успешно конвертирован в PDF через docx2pdf: {output_path}, размер: {file_size} байт")
+                    with open(output_path, 'rb') as f:
+                        pdf_data = f.read()
+                    
+                    pdf_filename = os.path.basename(output_path)
+                    stored_path = storage_manager.save_file(pdf_data, pdf_filename, 'application/pdf')
+                    
+                    if storage_manager.use_minio and os.path.exists(output_path):
+                        try:
+                            os.remove(output_path)
+                        except:
+                            pass
+                    
+                    if temp_docx_path and os.path.exists(temp_docx_path):
+                        try:
+                            os.remove(temp_docx_path)
+                        except:
+                            pass
+                    
+                    return stored_path
+                else:
+                    raise Exception(f"PDF файл не был создан: {output_path}")
+            except Exception as e:
+                error_msg = f"Ошибка при конвертации через docx2pdf: {e}"
                 print(f"[ERROR] {error_msg}")
                 import traceback
                 print(traceback.format_exc())
@@ -382,6 +547,8 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
         error_details.append(f"LIBREOFFICE_AVAILABLE={LIBREOFFICE_AVAILABLE}")
         if LIBREOFFICE_ERROR:
             error_details.append(f"LIBREOFFICE_ERROR={LIBREOFFICE_ERROR}")
+        if sys.platform == 'win32':
+            error_details.append(f"PYWIN32_AVAILABLE={PYWIN32_AVAILABLE}")
         error_details.append(f"MAMMOTH_AVAILABLE={MAMMOTH_AVAILABLE}")
         if MAMMOTH_ERROR:
             error_details.append(f"MAMMOTH_ERROR={MAMMOTH_ERROR}")
@@ -398,11 +565,21 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
         
         # Предлагаем решение
         if sys.platform == 'win32':
+            print("[SOLUTION] Для Windows доступны следующие варианты:")
+            if not LIBREOFFICE_AVAILABLE:
+                print("  1. Установите LibreOffice (рекомендуется):")
+                print("     - Скачайте с https://www.libreoffice.org/download/")
+                print("     - Установите в стандартную директорию")
+                print("     - Путь должен быть: C:\\Program Files\\LibreOffice\\program\\soffice.exe")
+            if not PYWIN32_AVAILABLE:
+                print("  2. Установите pywin32 для работы с Word:")
+                print("     pip install pywin32")
             if not DOCX2PDF_AVAILABLE:
-                print("[SOLUTION] Для Windows установите docx2pdf и pywin32:")
-                print("  pip install docx2pdf pywin32")
+                print("  3. Установите docx2pdf (альтернатива):")
+                print("     pip install docx2pdf pywin32")
                 if DOCX2PDF_ERROR:
-                    print(f"  Ошибка: {DOCX2PDF_ERROR}")
+                    print(f"     Ошибка: {DOCX2PDF_ERROR}")
+            print("[INFO] Рекомендуется использовать LibreOffice - он более надежен и не требует Microsoft Word")
         else:
             if not LIBREOFFICE_AVAILABLE:
                 print("[SOLUTION] Для Linux сервера установите LibreOffice:")

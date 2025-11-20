@@ -188,11 +188,28 @@ export default function CreateDocumentPage() {
   }
 
   const handleDownload = () => {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'https://dmed.gubkin.uz'
+    // Используем функцию getBaseURL для правильного формирования URL
+    function getBaseURL() {
+      let baseUrl = process.env.NEXT_PUBLIC_API_URL 
+        || process.env.API_URL 
+        || 'http://localhost:5000'
+      
+      // Убираем trailing slash если есть
+      baseUrl = baseUrl.replace(/\/+$/, '')
+      
+      // Добавляем /api только если его еще нет
+      if (!baseUrl.endsWith('/api')) {
+        baseUrl = `${baseUrl}/api`
+      }
+      
+      return baseUrl
+    }
+    
+    const apiBase = getBaseURL()
     
     if (result?.doc_id) {
       // Используем doc_id для формирования правильного URL
-      window.open(`${apiBase}/api/documents/${result.doc_id}/download`, '_blank')
+      window.open(`${apiBase}/documents/${result.doc_id}/download`, '_blank')
     } else if (result?.download_url) {
       // Если есть download_url, проверяем его формат
       let downloadUrl = result.download_url
@@ -203,7 +220,7 @@ export default function CreateDocumentPage() {
         window.open(`${apiBase}${downloadUrl}`, '_blank')
       } else {
         // Если это просто путь без /, формируем полный путь
-        window.open(`${apiBase}/api/documents/${downloadUrl}/download`, '_blank')
+        window.open(`${apiBase}/documents/${downloadUrl}/download`, '_blank')
       }
     }
   }

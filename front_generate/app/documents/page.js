@@ -18,6 +18,7 @@ import {
 import { FileText, Download, Loader2, Search, Plus, Filter, RotateCcw, ChevronDown } from 'lucide-react'
 import api from '@/lib/api'
 import { DatePicker } from '@/components/ui/date-picker'
+import { getAuth } from '@/lib/auth'
 
 export default function DocumentsPage() {
   const router = useRouter()
@@ -34,8 +35,13 @@ export default function DocumentsPage() {
     dateTo: '',
     organization: '',
   })
+  const [currentUser, setCurrentUser] = useState(null)
 
   useEffect(() => {
+    const auth = getAuth()
+    if (auth && auth.userData) {
+      setCurrentUser(auth.userData)
+    }
     fetchDocuments()
   }, [])
 
@@ -258,13 +264,14 @@ export default function DocumentsPage() {
                       <TableHead>Диагноз</TableHead>
                       <TableHead>Организация</TableHead>
                       <TableHead>Дата создания</TableHead>
+                      <TableHead>Создатель</TableHead>
                       <TableHead className="text-right sticky right-0 bg-background z-10">Действия</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedDocuments.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                           {filteredDocuments.length === 0 
                             ? (searchTerm ? 'Документы не найдены' : 'Нет документов')
                             : 'Нет документов на этой странице'
@@ -272,7 +279,14 @@ export default function DocumentsPage() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      paginatedDocuments.map((doc) => (
+                      paginatedDocuments.map((doc) => {
+                        // Скрываем создателя, если created_by === 1
+                        const shouldHideCreator = doc.created_by === 1
+                        const creatorDisplay = shouldHideCreator 
+                          ? '-' 
+                          : (doc.creator_username || doc.creator_email || '-')
+                        
+                        return (
                         <TableRow key={doc.id}>
                           <TableCell className="font-medium font-mono">
                             {doc.doc_number}
@@ -296,13 +310,33 @@ export default function DocumentsPage() {
                               : '-'
                             }
                           </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {creatorDisplay}
+                          </TableCell>
                           <TableCell className="text-right sticky right-0 bg-background z-10">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                const apiBase = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'https://dmed.gubkin.uz'
-                                window.open(`${apiBase}/api/documents/${doc.id}/download`, '_blank')
+                                // Используем функцию getBaseURL для правильного формирования URL
+                                function getBaseURL() {
+                                  let baseUrl = process.env.NEXT_PUBLIC_API_URL 
+                                    || process.env.API_URL 
+                                    || 'http://localhost:5000'
+                                  
+                                  // Убираем trailing slash если есть
+                                  baseUrl = baseUrl.replace(/\/+$/, '')
+                                  
+                                  // Добавляем /api только если его еще нет
+                                  if (!baseUrl.endsWith('/api')) {
+                                    baseUrl = `${baseUrl}/api`
+                                  }
+                                  
+                                  return baseUrl
+                                }
+                                
+                                const apiBase = getBaseURL()
+                                window.open(`${apiBase}/documents/${doc.id}/download`, '_blank')
                               }}
                               className="text-xs sm:text-sm"
                             >
@@ -311,7 +345,8 @@ export default function DocumentsPage() {
                             </Button>
                           </TableCell>
                         </TableRow>
-                      ))
+                        )
+                      })
                     )}
                   </TableBody>
                 </Table>
