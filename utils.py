@@ -171,46 +171,49 @@ def generate_qr_code(url):
     except ImportError as e:
         # Fallback на обычный qrcode если qrcode-styled не установлен
         print(f"[WARNING] qrcode-styled не установлен ({e}), используем обычный qrcode")
+        # Продолжаем выполнение fallback кода ниже
     except Exception as e:
         # Fallback на обычный qrcode если qrcode-styled не работает
         print(f"[WARNING] qrcode-styled не работает ({e}), используем обычный qrcode")
-        try:
-            ERROR_CORRECT_H = qrcode.constants.ERROR_CORRECT_H
-        except AttributeError:
-            ERROR_CORRECT_H = 3
+    
+    # Fallback код для обоих случаев (ImportError и другие Exception)
+    try:
+        ERROR_CORRECT_H = qrcode.constants.ERROR_CORRECT_H
+    except AttributeError:
+        ERROR_CORRECT_H = 3
+    
+    print("[QR_CODE] Используем fallback: обычный qrcode")
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=ERROR_CORRECT_H,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#000000", back_color="#FFFFFF").convert('RGBA')
+    print(f"[QR_CODE] Базовый QR-код создан, размер: {img.size}")
+    
+    # Добавляем логотип вручную как раньше
+    qr_size = min(img.size)
+    logo_size = int(qr_size * 0.22)
+    logo = create_logo_image(size=logo_size)
+    print(f"[QR_CODE] Логотип для вставки создан, размер: {logo.size if logo else 'None'}")
+    
+    if logo:
+        img_width, img_height = img.size
+        logo_width, logo_height = logo.size
+        pos = ((img_width - logo_width) // 2, (img_height - logo_height) // 2)
+        white_bg_size = int(logo_size * 1.4)
+        white_bg_pos = ((img_width - white_bg_size) // 2, (img_height - white_bg_size) // 2)
+        white_bg = Image.new('RGBA', (white_bg_size, white_bg_size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(white_bg)
+        draw.ellipse((0, 0, white_bg_size, white_bg_size), fill=(255, 255, 255, 255))
+        img.paste(white_bg, white_bg_pos, white_bg)
+        img.paste(logo, pos, logo)
+        print(f"[QR_CODE] Логотип вставлен в QR-код")
+    else:
+        print(f"[WARNING] Логотип не создан, QR-код без логотипа")
         
-        print("[QR_CODE] Используем fallback: обычный qrcode")
-        qr = qrcode.QRCode(
-            version=None,
-            error_correction=ERROR_CORRECT_H,
-            box_size=10,
-            border=4,
-        )
-        qr.add_data(url)
-        qr.make(fit=True)
-        img = qr.make_image(fill_color="#000000", back_color="#FFFFFF").convert('RGBA')
-        print(f"[QR_CODE] Базовый QR-код создан, размер: {img.size}")
-        
-        # Добавляем логотип вручную как раньше
-        qr_size = min(img.size)
-        logo_size = int(qr_size * 0.22)
-        logo = create_logo_image(size=logo_size)
-        print(f"[QR_CODE] Логотип для вставки создан, размер: {logo.size if logo else 'None'}")
-        
-        if logo:
-            img_width, img_height = img.size
-            logo_width, logo_height = logo.size
-            pos = ((img_width - logo_width) // 2, (img_height - logo_height) // 2)
-            white_bg_size = int(logo_size * 1.4)
-            white_bg_pos = ((img_width - white_bg_size) // 2, (img_height - white_bg_size) // 2)
-            white_bg = Image.new('RGBA', (white_bg_size, white_bg_size), (0, 0, 0, 0))
-            draw = ImageDraw.Draw(white_bg)
-            draw.ellipse((0, 0, white_bg_size, white_bg_size), fill=(255, 255, 255, 255))
-            img.paste(white_bg, white_bg_pos, white_bg)
-            img.paste(logo, pos, logo)
-            print(f"[QR_CODE] Логотип вставлен в QR-код")
-        else:
-            print(f"[WARNING] Логотип не создан, QR-код без логотипа")
-            
-        print(f"[QR_CODE] Финальный QR-код (fallback): размер {img.size}, режим {img.mode}")
-        return img
+    print(f"[QR_CODE] Финальный QR-код (fallback): размер {img.size}, режим {img.mode}")
+    return img
