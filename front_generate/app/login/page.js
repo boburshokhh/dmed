@@ -26,17 +26,26 @@ export default function LoginPage() {
 
     try {
       const response = await api.post('/auth/login', formData)
-      const { token, user } = response.data
-
-      setAuth(token, user)
       
-      if (user.role === 'super_admin') {
-        router.push('/dashboard')
+      // Проверяем формат ответа
+      if (response.data && response.data.success && response.data.token && response.data.user) {
+        const { token, user } = response.data
+        setAuth(token, user)
+        
+        if (user.role === 'super_admin') {
+          router.push('/dashboard')
+        } else {
+          router.push('/documents')
+        }
       } else {
-        router.push('/documents')
+        setError('Неверный формат ответа от сервера')
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Ошибка входа. Проверьте данные.')
+      console.error('Ошибка авторизации:', err)
+      const errorMessage = err.response?.data?.message 
+        || err.message 
+        || 'Ошибка входа. Проверьте данные и подключение к серверу.'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

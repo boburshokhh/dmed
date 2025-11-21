@@ -126,7 +126,7 @@ def login():
             password_bytes = password.encode('utf-8')
             if not bcrypt.checkpw(password_bytes, password_hash_bytes):
                 print(f"[AUTH] Неверный пароль для пользователя '{username}'")
-            return jsonify({'success': False, 'message': 'Неверное имя пользователя или пароль'}), 401
+                return jsonify({'success': False, 'message': 'Неверное имя пользователя или пароль'}), 401
         except Exception as e:
             print(f"[AUTH] Ошибка при проверке пароля для '{username}': {str(e)}")
             return jsonify({'success': False, 'message': 'Ошибка проверки пароля'}), 500
