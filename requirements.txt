@@ -3,6 +3,7 @@ Flask-SQLAlchemy==3.1.1
 flask-cors==4.0.0
 reportlab==4.0.7
 qrcode==7.4.2
+qrcode-styled>=0.2.0  # Для генерации QR-кодов со стилем (опционально, есть fallback)
 Pillow==10.1.0
 python-dotenv==1.0.0
 psycopg2-binary==2.9.9

@@ -123,42 +123,54 @@ def create_logo_image(size=100):
 
 def generate_qr_code(url):
     """Генерирует QR-код используя qrcode-styled для стиля Telegram"""
+    print(f"[QR_CODE] Начинаем генерацию QR-кода для URL: {url}")
     try:
         from qrcode_styled import QRCodeStyled
+        print("[QR_CODE] Используем библиотеку qrcode-styled")
         
         qr = QRCodeStyled()
         
         # Создаем логотип (звездочку)
         logo_img = create_logo_image(size=200)  # Генерируем логотип достаточного размера
+        print(f"[QR_CODE] Логотип создан, размер: {logo_img.size if logo_img else 'None'}")
         
         # Генерируем QR-код с логотипом в центре
         # qrcode-styled по умолчанию делает красивые скругленные коды
         img = qr.get_image(url, image=logo_img)
+        print(f"[QR_CODE] QR-код сгенерирован через qrcode-styled, тип: {type(img)}")
         
         # Проверяем тип изображения и конвертируем если нужно
         # qrcode-styled возвращает PIL Image, но может быть в разных режимах
         if isinstance(img, Image.Image):
             # Это PIL Image, проверяем режим
+            print(f"[QR_CODE] Изображение PIL Image, режим: {img.mode}, размер: {img.size}")
             if img.mode != 'RGBA':
                 try:
                     img = img.convert('RGBA')
+                    print(f"[QR_CODE] Конвертировано в RGBA")
                 except Exception as conv_error:
                     print(f"[WARNING] Не удалось конвертировать в RGBA: {conv_error}, используем текущий режим")
         else:
             # Если это не PIL Image, пробуем получить его через save/load
+            print(f"[QR_CODE] Изображение не PIL Image, пробуем конвертировать через save/load")
             try:
                 import io
                 buffer = io.BytesIO()
                 img.save(buffer, 'PNG')  # Убираем format=, используем позиционный аргумент
                 buffer.seek(0)
                 img = Image.open(buffer).convert('RGBA')
+                print(f"[QR_CODE] Конвертировано через save/load, размер: {img.size}")
             except Exception as save_error:
                 print(f"[WARNING] Не удалось обработать изображение: {save_error}")
                 # Fallback - создаем пустое изображение
                 img = Image.new('RGBA', (500, 500), (255, 255, 255, 255))
         
+        print(f"[QR_CODE] Финальный QR-код: размер {img.size}, режим {img.mode}")
         return img
         
+    except ImportError as e:
+        # Fallback на обычный qrcode если qrcode-styled не установлен
+        print(f"[WARNING] qrcode-styled не установлен ({e}), используем обычный qrcode")
     except Exception as e:
         # Fallback на обычный qrcode если qrcode-styled не работает
         print(f"[WARNING] qrcode-styled не работает ({e}), используем обычный qrcode")
@@ -167,6 +179,7 @@ def generate_qr_code(url):
         except AttributeError:
             ERROR_CORRECT_H = 3
         
+        print("[QR_CODE] Используем fallback: обычный qrcode")
         qr = qrcode.QRCode(
             version=None,
             error_correction=ERROR_CORRECT_H,
@@ -176,11 +189,13 @@ def generate_qr_code(url):
         qr.add_data(url)
         qr.make(fit=True)
         img = qr.make_image(fill_color="#000000", back_color="#FFFFFF").convert('RGBA')
+        print(f"[QR_CODE] Базовый QR-код создан, размер: {img.size}")
         
         # Добавляем логотип вручную как раньше
         qr_size = min(img.size)
         logo_size = int(qr_size * 0.22)
         logo = create_logo_image(size=logo_size)
+        print(f"[QR_CODE] Логотип для вставки создан, размер: {logo.size if logo else 'None'}")
         
         if logo:
             img_width, img_height = img.size
@@ -193,5 +208,9 @@ def generate_qr_code(url):
             draw.ellipse((0, 0, white_bg_size, white_bg_size), fill=(255, 255, 255, 255))
             img.paste(white_bg, white_bg_pos, white_bg)
             img.paste(logo, pos, logo)
+            print(f"[QR_CODE] Логотип вставлен в QR-код")
+        else:
+            print(f"[WARNING] Логотип не создан, QR-код без логотипа")
             
+        print(f"[QR_CODE] Финальный QR-код (fallback): размер {img.size}, режим {img.mode}")
         return img
