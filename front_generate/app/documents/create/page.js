@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/main-layout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -66,6 +66,7 @@ export default function CreateDocumentPage() {
   const [generating, setGenerating] = useState(false)
   const [result, setResult] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [isSuperAdminUser, setIsSuperAdminUser] = useState(false)
   const [formData, setFormData] = useState({
     patient_name: '',
     gender: 'Erkak',
@@ -85,6 +86,11 @@ export default function CreateDocumentPage() {
     days_off_to: '',
     issue_date: new Date().toISOString().split('T')[0],
   })
+
+  useEffect(() => {
+    // Проверяем роль только на клиенте после монтирования
+    setIsSuperAdminUser(isSuperAdmin())
+  }, [])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -235,7 +241,7 @@ export default function CreateDocumentPage() {
               Заполните все необходимые поля для генерации медицинского документа
             </p>
           </div>
-          {isSuperAdmin() && (
+          {isSuperAdminUser && (
             <Button
               type="button"
               variant="outline"

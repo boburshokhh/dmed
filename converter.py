@@ -100,12 +100,25 @@ LIBREOFFICE_CMD = None
 # Определяем команду для запуска LibreOffice в зависимости от ОС
 if sys.platform == 'win32':
     # На Windows LibreOffice обычно находится в Program Files
+    # Проверяем все возможные пути установки
     possible_paths = [
         r'C:\Program Files\LibreOffice\program\soffice.exe',
         r'C:\Program Files (x86)\LibreOffice\program\soffice.exe',
         os.path.join(os.environ.get('ProgramFiles', ''), 'LibreOffice', 'program', 'soffice.exe'),
         os.path.join(os.environ.get('ProgramFiles(x86)', ''), 'LibreOffice', 'program', 'soffice.exe'),
     ]
+    
+    # Добавляем пути из переменных окружения
+    if 'LOCALAPPDATA' in os.environ:
+        possible_paths.append(os.path.join(os.environ.get('LOCALAPPDATA', ''), 'Programs', 'LibreOffice', 'program', 'soffice.exe'))
+    if 'APPDATA' in os.environ:
+        possible_paths.append(os.path.join(os.environ.get('APPDATA', ''), 'Programs', 'LibreOffice', 'program', 'soffice.exe'))
+    
+    # Проверяем также в корне диска C:
+    possible_paths.extend([
+        r'C:\LibreOffice\program\soffice.exe',
+        r'D:\LibreOffice\program\soffice.exe',
+    ])
     
     # Также проверяем PATH
     libreoffice_found = False
@@ -203,13 +216,83 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
             upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads/documents') if app else 'uploads/documents'
             output_path = os.path.join(upload_folder, f"{document_uuid}.pdf")
         
-        # Метод 1: Прямой вызов Word COM API (лучший для Windows, приоритет на Windows)
+        # Метод 1: LibreOffice (основной метод для всех платформ, включая Windows)
+        if LIBREOFFICE_AVAILABLE and LIBREOFFICE_CMD:
+            try:
+                print(f"[INFO] Используем LibreOffice для конвертации...")
+                os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                
+                # Подготавливаем директорию для выхода
+                temp_output_dir = tempfile.mkdtemp()
+                
+                # Команда для конвертации
+                cmd = [
+                    LIBREOFFICE_CMD,
+                    '--headless',
+                    '--convert-to', 'pdf',
+                    '--outdir', temp_output_dir,
+                    docx_path
+                ]
+                
+                print(f"[INFO] Выполняем команду: {' '.join(cmd)}")
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                
+                # Получаем имя файла PDF
+                pdf_basename = os.path.splitext(os.path.basename(docx_path))[0] + '.pdf'
+                temp_pdf_path = os.path.join(temp_output_dir, pdf_basename)
+                
+                if result.returncode == 0 and os.path.exists(temp_pdf_path):
+                    # Копируем PDF на место
+                    with open(temp_pdf_path, 'rb') as f:
+                        pdf_data = f.read()
+                    
+                    # Сохраняем в хранилище
+                    pdf_filename = os.path.basename(output_path)
+                    stored_path = storage_manager.save_file(pdf_data, pdf_filename, 'application/pdf')
+                    
+                    file_size = len(pdf_data)
+                    print(f"[OK] DOCX успешно конвертирован в PDF через LibreOffice: {stored_path}, размер: {file_size} байт")
+                    
+                    # Очищаем временные файлы
+                    try:
+                        import shutil
+                        shutil.rmtree(temp_output_dir)
+                    except:
+                        pass
+                    
+                    if temp_docx_path and os.path.exists(temp_docx_path):
+                        try:
+                            os.remove(temp_docx_path)
+                        except:
+                            pass
+                    
+                    return stored_path
+                else:
+                    error_msg = f"LibreOffice вернул код {result.returncode}. stderr: {result.stderr}"
+                    print(f"[ERROR] {error_msg}")
+                    # Очищаем временную директорию
+                    try:
+                        import shutil
+                        shutil.rmtree(temp_output_dir)
+                    except:
+                        pass
+                    print("Пробуем альтернативный метод...")
+            except subprocess.TimeoutExpired:
+                print(f"[ERROR] LibreOffice timeout (>60 сек). Пробуем альтернативный метод...")
+            except Exception as e:
+                error_msg = f"Ошибка при конвертации через LibreOffice: {e}"
+                print(f"[ERROR] {error_msg}")
+                import traceback
+                print(traceback.format_exc())
+                print("Пробуем альтернативный метод...")
+        
+        # Метод 2: Прямой вызов Word COM API (резервный метод для Windows, если LibreOffice недоступен)
         if sys.platform == 'win32' and PYWIN32_AVAILABLE:
             word = None
             doc = None
             com_initialized = False
             try:
-                print(f"[INFO] Используем Word COM API для конвертации (Windows)...")
+                print(f"[INFO] Используем Word COM API для конвертации (Windows, резервный метод)...")
                 import pythoncom
                 from win32com.client import Dispatch
                 
@@ -311,76 +394,6 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
                 print(f"[ERROR] {error_msg}")
                 import traceback
                 print(traceback.format_exc())
-                print("Пробуем альтернативный метод (LibreOffice)...")
-        
-        # Метод 2: LibreOffice (работает на Windows и Linux, более надежный чем docx2pdf)
-        if LIBREOFFICE_AVAILABLE and LIBREOFFICE_CMD:
-            try:
-                print(f"[INFO] Используем LibreOffice для конвертации...")
-                os.makedirs(os.path.dirname(output_path), exist_ok=True)
-                
-                # Подготавливаем директорию для выхода
-                temp_output_dir = tempfile.mkdtemp()
-                
-                # Команда для конвертации
-                cmd = [
-                    LIBREOFFICE_CMD,
-                    '--headless',
-                    '--convert-to', 'pdf',
-                    '--outdir', temp_output_dir,
-                    docx_path
-                ]
-                
-                print(f"[INFO] Выполняем команду: {' '.join(cmd)}")
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-                
-                # Получаем имя файла PDF
-                pdf_basename = os.path.splitext(os.path.basename(docx_path))[0] + '.pdf'
-                temp_pdf_path = os.path.join(temp_output_dir, pdf_basename)
-                
-                if result.returncode == 0 and os.path.exists(temp_pdf_path):
-                    # Копируем PDF на место
-                    with open(temp_pdf_path, 'rb') as f:
-                        pdf_data = f.read()
-                    
-                    # Сохраняем в хранилище
-                    pdf_filename = os.path.basename(output_path)
-                    stored_path = storage_manager.save_file(pdf_data, pdf_filename, 'application/pdf')
-                    
-                    file_size = len(pdf_data)
-                    print(f"[OK] DOCX успешно конвертирован в PDF через LibreOffice: {stored_path}, размер: {file_size} байт")
-                    
-                    # Очищаем временные файлы
-                    try:
-                        import shutil
-                        shutil.rmtree(temp_output_dir)
-                    except:
-                        pass
-                    
-                    if temp_docx_path and os.path.exists(temp_docx_path):
-                        try:
-                            os.remove(temp_docx_path)
-                        except:
-                            pass
-                    
-                    return stored_path
-                else:
-                    error_msg = f"LibreOffice вернул код {result.returncode}. stderr: {result.stderr}"
-                    print(f"[ERROR] {error_msg}")
-                    # Очищаем временную директорию
-                    try:
-                        import shutil
-                        shutil.rmtree(temp_output_dir)
-                    except:
-                        pass
-                    print("Пробуем альтернативный метод...")
-            except subprocess.TimeoutExpired:
-                print(f"[ERROR] LibreOffice timeout (>60 сек). Пробуем альтернативный метод...")
-            except Exception as e:
-                error_msg = f"Ошибка при конвертации через LibreOffice: {e}"
-                print(f"[ERROR] {error_msg}")
-                import traceback
-                print(traceback.format_exc())
                 print("Пробуем альтернативный метод...")
         
         # Метод 3: docx2pdf (последний резервный метод для Windows)
@@ -431,7 +444,7 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
                 print(traceback.format_exc())
                 print("Пробуем альтернативный метод...")
         
-        # Метод 2: mammoth + weasyprint (только для Linux, на Windows не используется)
+        # Метод 4: mammoth + weasyprint (только для Linux, на Windows не используется)
         if sys.platform != 'win32' and MAMMOTH_AVAILABLE and WEASYPRINT_AVAILABLE:
             try:
                 print(f"[INFO] Используем метод mammoth+weasyprint для конвертации...")
@@ -565,21 +578,22 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
         
         # Предлагаем решение
         if sys.platform == 'win32':
-            print("[SOLUTION] Для Windows доступны следующие варианты:")
+            print("[SOLUTION] Для Windows LibreOffice является основным методом конвертации (как на Ubuntu):")
             if not LIBREOFFICE_AVAILABLE:
-                print("  1. Установите LibreOffice (рекомендуется):")
+                print("  1. УСТАНОВИТЕ LibreOffice (обязательно):")
                 print("     - Скачайте с https://www.libreoffice.org/download/")
                 print("     - Установите в стандартную директорию")
                 print("     - Путь должен быть: C:\\Program Files\\LibreOffice\\program\\soffice.exe")
-            if not PYWIN32_AVAILABLE:
-                print("  2. Установите pywin32 для работы с Word:")
+                print("     - После установки перезапустите приложение")
+            if not PYWIN32_AVAILABLE and LIBREOFFICE_AVAILABLE:
+                print("  2. (Опционально) Установите pywin32 для работы с Word как резервным методом:")
                 print("     pip install pywin32")
-            if not DOCX2PDF_AVAILABLE:
-                print("  3. Установите docx2pdf (альтернатива):")
+            if not DOCX2PDF_AVAILABLE and LIBREOFFICE_AVAILABLE:
+                print("  3. (Опционально) Установите docx2pdf как последний резервный метод:")
                 print("     pip install docx2pdf pywin32")
                 if DOCX2PDF_ERROR:
                     print(f"     Ошибка: {DOCX2PDF_ERROR}")
-            print("[INFO] Рекомендуется использовать LibreOffice - он более надежен и не требует Microsoft Word")
+            print("[INFO] LibreOffice - основной и рекомендуемый метод для Windows (как на Ubuntu)")
         else:
             if not LIBREOFFICE_AVAILABLE:
                 print("[SOLUTION] Для Linux сервера установите LibreOffice:")

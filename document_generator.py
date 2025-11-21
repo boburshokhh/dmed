@@ -672,7 +672,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             
             # Настраиваем ширину колонок - делаем компактнее
             from docx.shared import Cm, Pt
-            table.columns[0].width = Cm(0.7)  # Минимальная колонка для PIN-кода (без отступа)
+            table.columns[0].width = Cm(1.5)  # Достаточная ширина для PIN-кода (чтобы не переносился)
             table.columns[1].width = Cm(3.6)  # Колонка для QR-кода
             
             # Убираем отступы в ячейках для компактности
@@ -688,6 +688,9 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             if tc_pr is None:
                 tc_pr = OxmlElement('w:tcPr')
                 cell_pin._element.append(tc_pr)
+            # Отключаем перенос текста (noWrap) чтобы PIN-код не разбивался на строки
+            no_wrap = OxmlElement('w:noWrap')
+            tc_pr.append(no_wrap)
             # Устанавливаем минимальные отступы, уменьшаем отступ справа для сближения с QR-кодом
             tc_mar = OxmlElement('w:tcMar')
             for margin in ['top', 'left', 'bottom']:
@@ -787,7 +790,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     inner_table.style = None
                     from docx.shared import Cm, Pt
                     # Уменьшаем ширину колонок для компактности
-                    inner_table.columns[0].width = Cm(0.7)  # Минимальная для полного удаления отступа
+                    inner_table.columns[0].width = Cm(1.5)  # Достаточная ширина для PIN-кода (чтобы не переносился)
                     inner_table.columns[1].width = Cm(3.5)  # Колонка для QR-кода
                     
                     # Убираем отступы в ячейках
@@ -803,6 +806,9 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     if tc_pr_pin is None:
                         tc_pr_pin = OxmlElement('w:tcPr')
                         inner_cell_pin._element.append(tc_pr_pin)
+                    # Отключаем перенос текста (noWrap) чтобы PIN-код не разбивался на строки
+                    no_wrap_pin = OxmlElement('w:noWrap')
+                    tc_pr_pin.append(no_wrap_pin)
                     # Устанавливаем минимальные отступы, уменьшаем отступ справа для сближения с QR-кодом
                     tc_mar_pin = OxmlElement('w:tcMar')
                     for margin in ['top', 'left', 'bottom']:
