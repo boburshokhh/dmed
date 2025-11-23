@@ -171,8 +171,8 @@ def generate_qr_code(url):
                 except Exception as e2:
                     print(f"[ERROR] Альтернативный вызов тоже не сработал: {e2}")
                     raise type_error  # Возвращаем исходную ошибку
-                    
-        print(f"[QR_CODE] QR-код сгенерирован через qrcode-styled, тип: {type(img)}")
+            
+            print(f"[QR_CODE] QR-код сгенерирован через qrcode-styled, тип: {type(img)}")
         except Exception as get_image_error:
             print(f"[ERROR] Ошибка при вызове qr.get_image(): {get_image_error}")
             import traceback
