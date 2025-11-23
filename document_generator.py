@@ -814,8 +814,8 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             para_pin_format = para_pin.paragraph_format
             para_pin_format.space_before = Pt(0)
             para_pin_format.space_after = Pt(0)
-            # Добавляем отступ слева для сдвига вправо (~40px = 35px + 5px)
-            para_pin_format.left_indent = Pt(40)  # Сдвиг вправо на ~40px (было 35px, добавили 5px)
+            # Добавляем отступ слева для сдвига вправо (~35px = 25px + 10px)
+            para_pin_format.left_indent = Pt(35)  # Сдвиг вправо на ~35px (было 25px, добавили 10px)
             para_pin_format.right_indent = Pt(0)
             # Предотвращаем перенос текста на уровне параграфа
             para_pin_format.widow_control = False
@@ -883,13 +883,13 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             para_qr_format = para_qr.paragraph_format
             para_qr_format.space_before = Pt(0)
             para_qr_format.space_after = Pt(0)
-            # Добавляем небольшой отступ слева для сдвига вправо вместе с PIN (~15px = 10px + 5px)
-            para_qr_format.left_indent = Pt(15)  # Сдвиг вправо на ~15px (было 10px, добавили 5px вместе с PIN)
+            # Добавляем небольшой отступ слева для сдвига вправо вместе с PIN (~10px)
+            para_qr_format.left_indent = Pt(10)  # Сдвиг вправо на ~10px (вместе с PIN)
             para_qr_format.right_indent = Pt(0)
             run_qr = para_qr.add_run()
-            # Размер QR-кода - увеличен на 20% (1.1 * 1.2 = 1.32 дюйма)
-            # 1.32 дюйма = ~3.35 см, что помещается в ячейку 5.0 см с отступами
-            qr_width_inches = 1.32  # Увеличен на 20% (было 1.1 дюйма)
+            # Размер QR-кода - увеличен на 10% (1.1 * 1.1 = 1.21 дюйма)
+            # 1.21 дюйма = ~3.07 см, что помещается в ячейку 5.0 см с отступами и сдвигом
+            qr_width_inches = 1.21  # Увеличен на 10% (было 1.1 дюйма)
             run_qr.add_picture(qr_temp_path, width=Inches(qr_width_inches))
             print(f"[QR_PIN_LAYOUT] QR-код добавлен в ячейку 1, размер: {qr_width_inches} дюймов (~{qr_width_inches * 2.54:.2f} см)")
             
@@ -973,8 +973,8 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     para_pin_format = para_pin.paragraph_format
                     para_pin_format.space_before = Pt(0)
                     para_pin_format.space_after = Pt(0)
-                    # Добавляем отступ слева для сдвига вправо (~40px = 35px + 5px)
-                    para_pin_format.left_indent = Pt(40)  # Сдвиг вправо на ~40px (было 35px, добавили 5px)
+                    # Добавляем отступ слева для сдвига вправо (~35px = 25px + 10px)
+                    para_pin_format.left_indent = Pt(35)  # Сдвиг вправо на ~35px (было 25px, добавили 10px)
                     para_pin_format.right_indent = Pt(0)
                     # Предотвращаем перенос текста на уровне параграфа
                     para_pin_format.widow_control = False
@@ -1042,13 +1042,13 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     para_qr_format = para_qr.paragraph_format
                     para_qr_format.space_before = Pt(0)
                     para_qr_format.space_after = Pt(0)
-                    # Добавляем небольшой отступ слева для сдвига вправо вместе с PIN (~15px = 10px + 5px)
-                    para_qr_format.left_indent = Pt(15)  # Сдвиг вправо на ~15px (было 10px, добавили 5px вместе с PIN)
+                    # Добавляем небольшой отступ слева для сдвига вправо вместе с PIN (~10px)
+                    para_qr_format.left_indent = Pt(10)  # Сдвиг вправо на ~10px (вместе с PIN)
                     para_qr_format.right_indent = Pt(0)
                     run_qr = para_qr.add_run()
-                    # Размер QR-кода - увеличен на 20% (1.1 * 1.2 = 1.32 дюйма)
-                    # 1.32 дюйма = ~3.35 см, что помещается в ячейку 5.0 см с отступами
-                    qr_width_inches = 1.32  # Увеличен на 20% (было 1.1 дюйма)
+                    # Размер QR-кода - увеличен на 10% (1.1 * 1.1 = 1.21 дюйма)
+                    # 1.21 дюйма = ~3.07 см, что помещается в ячейку 5.0 см с отступами и сдвигом
+                    qr_width_inches = 1.21  # Увеличен на 10% (было 1.1 дюйма)
                     run_qr.add_picture(qr_temp_path, width=Inches(qr_width_inches))
                     print(f"[QR_PIN_LAYOUT] QR-код добавлен во вложенную таблицу, ячейка 1, размер: {qr_width_inches} дюймов (~{qr_width_inches * 2.54:.2f} см)")
                     print(f"[QR_PIN_LAYOUT] Вложенная таблица завершена: PIN слева (ячейка 0), QR справа (ячейка 1)")
