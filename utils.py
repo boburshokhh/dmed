@@ -180,13 +180,18 @@ def generate_qr_code(url):
             raise
         
         # Проверяем тип изображения и конвертируем если нужно
-        # qrcode-styled возвращает PIL Image, но может быть в разных режимах
+        # qrcode-styled возвращает PilStyledImage (наследник PIL.Image), но может быть в разных режимах
         if img is None:
             raise Exception("qrcode-styled.get_image() вернул None")
         
-        if isinstance(img, Image.Image):
-            # Это PIL Image, проверяем режим
-            print(f"[QR_CODE] Изображение PIL Image, режим: {img.mode}, размер: {img.size}")
+        # Проверяем, является ли это PIL Image (включая PilStyledImage)
+        # PilStyledImage наследуется от Image.Image, но проверка isinstance может не сработать
+        # в некоторых версиях, поэтому проверяем наличие методов
+        is_pil_image = isinstance(img, Image.Image) or (hasattr(img, 'save') and hasattr(img, 'size') and hasattr(img, 'mode'))
+        
+        if is_pil_image:
+            # Это PIL Image или совместимый объект, проверяем режим
+            print(f"[QR_CODE] Изображение PIL Image (тип: {type(img).__name__}), режим: {img.mode}, размер: {img.size}")
             if img.mode != 'RGBA':
                 try:
                     img = img.convert('RGBA')
@@ -212,14 +217,40 @@ def generate_qr_code(url):
                 print(traceback.format_exc())
                 raise Exception(f"Не удалось обработать изображение от qrcode-styled: {save_error}")
         
+        # Дополнительная проверка: если это PilStyledImage, конвертируем в обычный PIL.Image
+        # для гарантии совместимости
+        if hasattr(img, '__class__') and 'PilStyledImage' in str(type(img)):
+            try:
+                import io
+                buffer = io.BytesIO()
+                img.save(buffer, 'PNG')
+                buffer.seek(0)
+                img = Image.open(buffer).convert('RGBA')
+                print(f"[QR_CODE] PilStyledImage конвертирован в PIL.Image, размер: {img.size}")
+            except Exception as conv_error:
+                print(f"[WARNING] Не удалось конвертировать PilStyledImage: {conv_error}, используем как есть")
+        
         # Финальная проверка
-        if not isinstance(img, Image.Image):
+        # Проверяем, что это PIL.Image или совместимый объект
+        if not isinstance(img, Image.Image) and not (hasattr(img, 'save') and hasattr(img, 'size') and hasattr(img, 'mode')):
             raise Exception(f"После обработки изображение все еще не PIL.Image, тип: {type(img)}")
         
-        if img.size[0] == 0 or img.size[1] == 0:
-            raise Exception(f"Изображение имеет нулевой размер: {img.size}")
+        if not hasattr(img, 'size') or img.size[0] == 0 or img.size[1] == 0:
+            raise Exception(f"Изображение имеет нулевой или неопределенный размер: {getattr(img, 'size', 'unknown')}")
         
-        print(f"[QR_CODE] Финальный QR-код: размер {img.size}, режим {img.mode}")
+        # Если это PilStyledImage, конвертируем в обычный PIL.Image для гарантии совместимости
+        if hasattr(img, '__class__') and 'PilStyledImage' in str(type(img)):
+            try:
+                import io
+                buffer = io.BytesIO()
+                img.save(buffer, 'PNG')
+                buffer.seek(0)
+                img = Image.open(buffer).convert('RGBA')
+                print(f"[QR_CODE] PilStyledImage конвертирован в PIL.Image для совместимости")
+            except Exception as conv_error:
+                print(f"[WARNING] Не удалось конвертировать PilStyledImage: {conv_error}, используем как есть")
+        
+        print(f"[QR_CODE] Финальный QR-код: размер {img.size}, режим {img.mode}, тип: {type(img).__name__}")
         return img
         
     except ImportError as e:
