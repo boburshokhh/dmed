@@ -712,8 +712,9 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             from docx.shared import Cm, Pt
             # Для 4-значного PIN-кода с размером шрифта 20pt нужно минимум 1.8-2.0 см
             table.columns[0].width = Cm(2.0)  # Увеличена ширина для PIN-кода (чтобы точно не переносился)
-            table.columns[1].width = Cm(2.8)  # Компактная колонка для QR-кода
-            print(f"[QR_PIN_LAYOUT] Ширина колонок: PIN={Cm(2.0)}, QR={Cm(2.8)}")
+            # Увеличиваем ширину для QR-кода, чтобы он не обрезался (1.2 дюйма = ~3.05 см, нужно минимум 3.5 см с отступами)
+            table.columns[1].width = Cm(3.8)  # Увеличена ширина для QR-кода (чтобы не обрезался)
+            print(f"[QR_PIN_LAYOUT] Ширина колонок: PIN={Cm(2.0)}, QR={Cm(3.8)}")
             
             # Убираем отступы в ячейках для компактности
             from docx.oxml.ns import qn
@@ -821,10 +822,11 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             para_qr_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю ячейки
             para_qr_format.right_indent = Pt(0)
             run_qr = para_qr.add_run()
-            # Размер QR-кода - компактнее для лучшего размещения
-            qr_width_inches = 1.2  # Уменьшен с 1.4 до 1.2 для компактности
+            # Размер QR-кода - оптимизирован для ячейки шириной 3.8 см
+            # 1.1 дюйма = ~2.79 см, что помещается в ячейку 3.8 см с отступами
+            qr_width_inches = 1.1  # Оптимизирован для ячейки 3.8 см (чтобы не обрезался)
             run_qr.add_picture(qr_temp_path, width=Inches(qr_width_inches))
-            print(f"[QR_PIN_LAYOUT] QR-код добавлен в ячейку 1, размер: {qr_width_inches} дюймов")
+            print(f"[QR_PIN_LAYOUT] QR-код добавлен в ячейку 1, размер: {qr_width_inches} дюймов (~{qr_width_inches * 2.54:.2f} см)")
             
             # Выравниваем таблицу по левому краю
             table.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -859,8 +861,9 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     # Увеличиваем ширину для PIN-кода, чтобы он не переносился на две строки
                     # Для 4-значного PIN-кода с размером шрифта 20pt нужно минимум 1.8-2.0 см
                     inner_table.columns[0].width = Cm(2.0)  # Увеличена ширина для PIN-кода (чтобы точно не переносился)
-                    inner_table.columns[1].width = Cm(2.8)  # Компактная колонка для QR-кода
-                    print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(2.0)}, QR={Cm(2.8)}, выравнивание: LEFT")
+                    # Увеличиваем ширину для QR-кода, чтобы он не обрезался (1.2 дюйма = ~3.05 см, нужно минимум 3.5 см с отступами)
+                    inner_table.columns[1].width = Cm(3.8)  # Увеличена ширина для QR-кода (чтобы не обрезался)
+                    print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(2.0)}, QR={Cm(3.8)}, выравнивание: LEFT")
                     
                     # Убираем отступы в ячейках
                     from docx.oxml.ns import qn
@@ -970,10 +973,11 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     para_qr_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю ячейки
                     para_qr_format.right_indent = Pt(0)
                     run_qr = para_qr.add_run()
-                    # Размер QR-кода - компактнее для лучшего размещения
-                    qr_width_inches = 1.2  # Уменьшен с 1.4 до 1.2 для компактности
+                    # Размер QR-кода - оптимизирован для ячейки шириной 3.8 см
+                    # 1.1 дюйма = ~2.79 см, что помещается в ячейку 3.8 см с отступами
+                    qr_width_inches = 1.1  # Оптимизирован для ячейки 3.8 см (чтобы не обрезался)
                     run_qr.add_picture(qr_temp_path, width=Inches(qr_width_inches))
-                    print(f"[QR_PIN_LAYOUT] QR-код добавлен во вложенную таблицу, ячейка 1, размер: {qr_width_inches} дюймов")
+                    print(f"[QR_PIN_LAYOUT] QR-код добавлен во вложенную таблицу, ячейка 1, размер: {qr_width_inches} дюймов (~{qr_width_inches * 2.54:.2f} см)")
                     print(f"[QR_PIN_LAYOUT] Вложенная таблица завершена: PIN слева (ячейка 0), QR справа (ячейка 1)")
                 else:
                     # Если мы в обычном параграфе, создаем таблицу
