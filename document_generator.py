@@ -9,6 +9,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from config import DOCX_FONT_NAME
 from storage import storage_manager
 from utils import generate_qr_code
+from PIL import Image
 
 
 def fill_docx_template(document_data, template_path=None, app=None):
@@ -655,16 +656,47 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
         
         print(f"[QR_PIN_LAYOUT] URL для QR-кода: {qr_url}")
         qr_img = generate_qr_code(qr_url)
-        print(f"[QR_PIN_LAYOUT] QR-код сгенерирован, размер: {qr_img.size if qr_img else 'None'}")
+        
+        if qr_img is None:
+            raise Exception("generate_qr_code() вернул None")
+        
+        if not isinstance(qr_img, Image.Image):
+            raise Exception(f"generate_qr_code() вернул не PIL.Image, а {type(qr_img)}")
+        
+        print(f"[QR_PIN_LAYOUT] QR-код сгенерирован, размер: {qr_img.size if qr_img else 'None'}, режим: {qr_img.mode if qr_img else 'None'}")
         
         upload_folder = app.config.get('UPLOAD_FOLDER', 'static/generated_documents') if app else 'static/generated_documents'
         qr_temp_path = os.path.join(upload_folder, f'qr_temp_{pin_code}.png')
         if not os.path.exists(os.path.dirname(qr_temp_path)):
             os.makedirs(os.path.dirname(qr_temp_path), exist_ok=True)
         
-        with open(qr_temp_path, 'wb') as f:
-            qr_img.save(f, 'PNG')
-        print(f"[QR_PIN_LAYOUT] QR-код сохранен во временный файл: {qr_temp_path}")
+        # Убеждаемся, что изображение в правильном формате перед сохранением
+        if qr_img.mode != 'RGBA':
+            try:
+                qr_img = qr_img.convert('RGBA')
+                print(f"[QR_PIN_LAYOUT] QR-код конвертирован в RGBA перед сохранением")
+            except Exception as conv_error:
+                print(f"[WARNING] Не удалось конвертировать QR-код в RGBA: {conv_error}")
+        
+        # Сохраняем изображение
+        try:
+            with open(qr_temp_path, 'wb') as f:
+                qr_img.save(f, 'PNG', optimize=True)
+            print(f"[QR_PIN_LAYOUT] QR-код сохранен во временный файл: {qr_temp_path}")
+            
+            # Проверяем, что файл действительно создан и имеет размер
+            if os.path.exists(qr_temp_path):
+                file_size = os.path.getsize(qr_temp_path)
+                print(f"[QR_PIN_LAYOUT] Файл QR-кода создан, размер: {file_size} байт")
+                if file_size == 0:
+                    raise Exception(f"Файл QR-кода пустой: {qr_temp_path}")
+            else:
+                raise Exception(f"Файл QR-кода не был создан: {qr_temp_path}")
+        except Exception as save_error:
+            print(f"[ERROR] Ошибка при сохранении QR-кода: {save_error}")
+            import traceback
+            print(traceback.format_exc())
+            raise
         
         qr_placeholder_found = False
         

@@ -444,20 +444,19 @@ def create_document():
             print(traceback_str)
             
             # Проверяем доступность библиотек для более информативного сообщения
-            from converter import MAMMOTH_AVAILABLE, WEASYPRINT_AVAILABLE, DOCX2PDF_AVAILABLE, WEASYPRINT_ERROR
-            if sys.platform != 'win32' and not WEASYPRINT_AVAILABLE:
-                error_detail += " Для Linux сервера требуется установить системные зависимости для weasyprint."
-            elif sys.platform == 'win32' and not DOCX2PDF_AVAILABLE:
-                error_detail += " Для Windows требуется установить docx2pdf и pywin32."
+            from converter import LIBREOFFICE_AVAILABLE, LIBREOFFICE_ERROR
+            if not LIBREOFFICE_AVAILABLE:
+                if sys.platform == 'win32':
+                    error_detail += " Для Windows требуется установить LibreOffice с https://www.libreoffice.org/download/"
+                else:
+                    error_detail += " Для Linux сервера требуется установить LibreOffice: sudo apt-get install -y libreoffice libreoffice-writer"
             
             return jsonify({
                 'success': False, 
                 'error': error_detail,
                 'details': {
-                    'mammoth_available': MAMMOTH_AVAILABLE,
-                    'weasyprint_available': WEASYPRINT_AVAILABLE if sys.platform != 'win32' else False,
-                    'docx2pdf_available': DOCX2PDF_AVAILABLE,
-                    'weasyprint_error': WEASYPRINT_ERROR if (sys.platform != 'win32' and not WEASYPRINT_AVAILABLE) else None
+                    'libreoffice_available': LIBREOFFICE_AVAILABLE,
+                    'libreoffice_error': LIBREOFFICE_ERROR if not LIBREOFFICE_AVAILABLE else None
                 }
             }), 500
         

@@ -128,19 +128,38 @@ def generate_qr_code(url):
         from qrcode_styled import QRCodeStyled
         print("[QR_CODE] Используем библиотеку qrcode-styled")
         
-        qr = QRCodeStyled()
-        
-        # Создаем логотип (звездочку)
+        # Создаем логотип (звездочку) ПЕРЕД созданием QRCodeStyled
         logo_img = create_logo_image(size=200)  # Генерируем логотип достаточного размера
-        print(f"[QR_CODE] Логотип создан, размер: {logo_img.size if logo_img else 'None'}")
+        print(f"[QR_CODE] Логотип создан, размер: {logo_img.size if logo_img else 'None'}, режим: {logo_img.mode if logo_img else 'None'}")
+        
+        # Проверяем, что логотип в правильном формате
+        if logo_img and logo_img.mode != 'RGBA':
+            try:
+                logo_img = logo_img.convert('RGBA')
+                print(f"[QR_CODE] Логотип конвертирован в RGBA")
+            except Exception as logo_conv_error:
+                print(f"[WARNING] Не удалось конвертировать логотип в RGBA: {logo_conv_error}")
+        
+        # Создаем экземпляр QRCodeStyled
+        qr = QRCodeStyled()
         
         # Генерируем QR-код с логотипом в центре
         # qrcode-styled по умолчанию делает красивые скругленные коды
-        img = qr.get_image(url, image=logo_img)
-        print(f"[QR_CODE] QR-код сгенерирован через qrcode-styled, тип: {type(img)}")
+        print(f"[QR_CODE] Вызываем qr.get_image(url='{url[:50]}...', image=logo_img)")
+        try:
+            img = qr.get_image(url, image=logo_img if logo_img else None)
+            print(f"[QR_CODE] QR-код сгенерирован через qrcode-styled, тип: {type(img)}")
+        except Exception as get_image_error:
+            print(f"[ERROR] Ошибка при вызове qr.get_image(): {get_image_error}")
+            import traceback
+            print(traceback.format_exc())
+            raise
         
         # Проверяем тип изображения и конвертируем если нужно
         # qrcode-styled возвращает PIL Image, но может быть в разных режимах
+        if img is None:
+            raise Exception("qrcode-styled.get_image() вернул None")
+        
         if isinstance(img, Image.Image):
             # Это PIL Image, проверяем режим
             print(f"[QR_CODE] Изображение PIL Image, режим: {img.mode}, размер: {img.size}")
@@ -149,21 +168,32 @@ def generate_qr_code(url):
                     img = img.convert('RGBA')
                     print(f"[QR_CODE] Конвертировано в RGBA")
                 except Exception as conv_error:
-                    print(f"[WARNING] Не удалось конвертировать в RGBA: {conv_error}, используем текущий режим")
+                    print(f"[WARNING] Не удалось конвертировать в RGBA: {conv_error}, используем текущий режим {img.mode}")
         else:
             # Если это не PIL Image, пробуем получить его через save/load
-            print(f"[QR_CODE] Изображение не PIL Image, пробуем конвертировать через save/load")
+            print(f"[QR_CODE] Изображение не PIL Image (тип: {type(img)}), пробуем конвертировать через save/load")
             try:
                 import io
                 buffer = io.BytesIO()
-                img.save(buffer, 'PNG')
+                if hasattr(img, 'save'):
+                    img.save(buffer, 'PNG')
+                else:
+                    raise Exception(f"Объект {type(img)} не имеет метода save()")
                 buffer.seek(0)
                 img = Image.open(buffer).convert('RGBA')
                 print(f"[QR_CODE] Конвертировано через save/load, размер: {img.size}")
             except Exception as save_error:
-                print(f"[WARNING] Не удалось обработать изображение: {save_error}")
-                # Создаем пустое изображение при ошибке
-                img = Image.new('RGBA', (500, 500), (255, 255, 255, 255))
+                print(f"[ERROR] Не удалось обработать изображение: {save_error}")
+                import traceback
+                print(traceback.format_exc())
+                raise Exception(f"Не удалось обработать изображение от qrcode-styled: {save_error}")
+        
+        # Финальная проверка
+        if not isinstance(img, Image.Image):
+            raise Exception(f"После обработки изображение все еще не PIL.Image, тип: {type(img)}")
+        
+        if img.size[0] == 0 or img.size[1] == 0:
+            raise Exception(f"Изображение имеет нулевой размер: {img.size}")
         
         print(f"[QR_CODE] Финальный QR-код: размер {img.size}, режим {img.mode}")
         return img
@@ -171,8 +201,12 @@ def generate_qr_code(url):
     except ImportError as e:
         error_msg = f"qrcode-styled не установлен: {e}. Установите библиотеку: pip install qrcode-styled"
         print(f"[ERROR] {error_msg}")
+        import traceback
+        print(traceback.format_exc())
         raise ImportError(error_msg)
     except Exception as e:
         error_msg = f"Ошибка при генерации QR-кода через qrcode-styled: {e}"
         print(f"[ERROR] {error_msg}")
+        import traceback
+        print(traceback.format_exc())
         raise Exception(error_msg)
