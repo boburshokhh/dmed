@@ -739,12 +739,12 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 margin_elem.set(qn('w:w'), '0')
                 margin_elem.set(qn('w:type'), 'dxa')
                 tc_mar.append(margin_elem)
-            # Отступ справа - минимальный для сближения с QR-кодом (в пикселях: ~2-3px = ~15-20 twips)
+            # Отступ справа - отрицательный для сдвига вправо на 20px (20px ≈ 300 twips)
             right_margin = OxmlElement('w:right')
-            right_margin.set(qn('w:w'), '20')  # Минимальный отступ ~2-3px для сближения
+            right_margin.set(qn('w:w'), '-240')  # Отрицательный отступ ~20px для сдвига правее
             right_margin.set(qn('w:type'), 'dxa')
             tc_mar.append(right_margin)
-            print(f"[QR_PIN_LAYOUT] Отступы ячейки PIN установлены (все нулевые для совместимости)")
+            print(f"[QR_PIN_LAYOUT] Отступы ячейки PIN установлены: right margin = -240 twips (~20px правее)")
             # Удаляем старый tcMar если есть
             old_tc_mar = tc_pr.find(qn('w:tcMar'))
             if old_tc_mar is not None:
@@ -757,7 +757,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             para_pin_format.space_before = Pt(0)
             para_pin_format.space_after = Pt(0)
             para_pin_format.left_indent = Pt(0)
-            para_pin_format.right_indent = Pt(0)  # Нет отступа справа - прижимаем к правому краю
+            para_pin_format.right_indent = Pt(0)  # Отступ справа управляется через margin ячейки
             # Предотвращаем перенос текста на уровне параграфа
             para_pin_format.widow_control = False
             para_pin_format.keep_together = True
@@ -806,6 +806,11 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             left_margin.set(qn('w:w'), '20')  # Минимальный отступ ~2-3px для сближения с PIN
             left_margin.set(qn('w:type'), 'dxa')
             tc_mar_qr.append(left_margin)
+            # Отступ справа - отрицательный для сдвига вправо на 20px (20px ≈ 300 twips)
+            right_margin_qr = OxmlElement('w:right')
+            right_margin_qr.set(qn('w:w'), '-240')  # Отрицательный отступ ~20px для сдвига правее
+            right_margin_qr.set(qn('w:type'), 'dxa')
+            tc_mar_qr.append(right_margin_qr)
             print(f"[QR_PIN_LAYOUT] Отступы ячейки QR установлены (все нулевые для совместимости)")
             # Удаляем старый tcMar если есть
             old_tc_mar_qr = tc_pr_qr.find(qn('w:tcMar'))
@@ -820,7 +825,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             para_qr_format.space_before = Pt(0)
             para_qr_format.space_after = Pt(0)
             para_qr_format.left_indent = Pt(0)
-            para_qr_format.right_indent = Pt(0)  # Нет отступа справа - прижимаем к правому краю ячейки
+            para_qr_format.right_indent = Pt(0)  # Отступ справа управляется через margin ячейки
             run_qr = para_qr.add_run()
             # Размер QR-кода - оптимизирован для ячейки шириной 3.8 см
             # 1.1 дюйма = ~2.79 см, что помещается в ячейку 3.8 см с отступами
@@ -888,9 +893,10 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                         margin_elem.set(qn('w:w'), '0')
                         margin_elem.set(qn('w:type'), 'dxa')
                         tc_mar_pin.append(margin_elem)
-                    # Отступ справа - минимальный для сближения с QR-кодом (в пикселях: ~2-3px = ~15-20 twips)
+                    # Отступ справа - уменьшаем для сдвига вправо (20px = ~300 twips, но делаем отрицательным для сдвига правее)
                     right_margin_pin = OxmlElement('w:right')
-                    right_margin_pin.set(qn('w:w'), '20')  # Минимальный отступ ~2-3px для сближения
+                    # Отрицательный отступ справа сдвигает содержимое правее (20px ≈ 300 twips, но используем меньше для безопасности)
+                    right_margin_pin.set(qn('w:w'), '-240')  # Отрицательный отступ ~20px для сдвига правее
                     right_margin_pin.set(qn('w:type'), 'dxa')
                     tc_mar_pin.append(right_margin_pin)
                     old_tc_mar_pin = tc_pr_pin.find(qn('w:tcMar'))
@@ -904,7 +910,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     para_pin_format.space_before = Pt(0)
                     para_pin_format.space_after = Pt(0)
                     para_pin_format.left_indent = Pt(0)
-                    para_pin_format.right_indent = Pt(0)  # Нет отступа справа - прижимаем к правому краю
+                    para_pin_format.right_indent = Pt(0)  # Отступ справа управляется через margin ячейки
                     # Предотвращаем перенос текста на уровне параграфа
                     para_pin_format.widow_control = False
                     para_pin_format.keep_together = True
@@ -959,6 +965,12 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     left_margin.set(qn('w:w'), '20')  # Минимальный отступ ~2-3px для сближения с PIN
                     left_margin.set(qn('w:type'), 'dxa')
                     tc_mar_qr.append(left_margin)
+                    # Отступ справа - уменьшаем для сдвига вправо (20px = ~300 twips)
+                    right_margin_qr = OxmlElement('w:right')
+                    # Отрицательный отступ справа сдвигает содержимое правее (20px ≈ 300 twips, но используем меньше для безопасности)
+                    right_margin_qr.set(qn('w:w'), '-240')  # Отрицательный отступ ~20px для сдвига правее
+                    right_margin_qr.set(qn('w:type'), 'dxa')
+                    tc_mar_qr.append(right_margin_qr)
                     old_tc_mar_qr = tc_pr_qr.find(qn('w:tcMar'))
                     if old_tc_mar_qr is not None:
                         tc_pr_qr.remove(old_tc_mar_qr)
@@ -971,7 +983,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     para_qr_format.space_before = Pt(0)
                     para_qr_format.space_after = Pt(0)
                     para_qr_format.left_indent = Pt(0)
-                    para_qr_format.right_indent = Pt(0)  # Нет отступа справа - прижимаем к правому краю ячейки
+                    para_qr_format.right_indent = Pt(0)  # Отступ справа управляется через margin ячейки
                     run_qr = para_qr.add_run()
                     # Размер QR-кода - оптимизирован для ячейки шириной 3.8 см
                     # 1.1 дюйма = ~2.79 см, что помещается в ячейку 3.8 см с отступами
