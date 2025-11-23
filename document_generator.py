@@ -814,8 +814,8 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             para_pin_format = para_pin.paragraph_format
             para_pin_format.space_before = Pt(0)
             para_pin_format.space_after = Pt(0)
-            # Добавляем небольшой отступ слева для сдвига вправо (~10px)
-            para_pin_format.left_indent = Pt(10)  # Сдвиг вправо на ~10px
+            # Добавляем небольшой отступ слева для сдвига вправо (~15px)
+            para_pin_format.left_indent = Pt(15)  # Сдвиг вправо на ~15px
             para_pin_format.right_indent = Pt(0)
             # Предотвращаем перенос текста на уровне параграфа
             para_pin_format.widow_control = False
@@ -883,8 +883,8 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             para_qr_format = para_qr.paragraph_format
             para_qr_format.space_before = Pt(0)
             para_qr_format.space_after = Pt(0)
-            # Добавляем небольшой отступ слева для сдвига вправо (~10px)
-            para_qr_format.left_indent = Pt(10)  # Сдвиг вправо на ~10px
+            # Добавляем небольшой отступ слева для сдвига вправо (~15px)
+            para_qr_format.left_indent = Pt(15)  # Сдвиг вправо на ~15px
             para_qr_format.right_indent = Pt(0)
             run_qr = para_qr.add_run()
             # Размер QR-кода - оптимизирован для ячейки шириной 5.0 см
