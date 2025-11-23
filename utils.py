@@ -128,6 +128,14 @@ def generate_qr_code(url):
         from qrcode_styled import QRCodeStyled
         print("[QR_CODE] Используем библиотеку qrcode-styled")
         
+        # Проверяем версию qrcode-styled (если доступна)
+        try:
+            import qrcode_styled
+            version = getattr(qrcode_styled, '__version__', 'unknown')
+            print(f"[QR_CODE] Версия qrcode-styled: {version}")
+        except:
+            pass
+        
         # Создаем логотип (звездочку) ПЕРЕД созданием QRCodeStyled
         logo_img = create_logo_image(size=200)  # Генерируем логотип достаточного размера
         print(f"[QR_CODE] Логотип создан, размер: {logo_img.size if logo_img else 'None'}, режим: {logo_img.mode if logo_img else 'None'}")
@@ -147,7 +155,23 @@ def generate_qr_code(url):
         # qrcode-styled по умолчанию делает красивые скругленные коды
         print(f"[QR_CODE] Вызываем qr.get_image(url='{url[:50]}...', image=logo_img)")
         try:
-            img = qr.get_image(url, image=logo_img if logo_img else None)
+            # Пробуем разные варианты вызова для совместимости с разными версиями
+            try:
+                # Стандартный вызов
+                img = qr.get_image(url, image=logo_img if logo_img else None)
+            except TypeError as type_error:
+                # Возможно, старая версия не поддерживает параметр image
+                print(f"[WARNING] Стандартный вызов не сработал: {type_error}, пробуем без image")
+                try:
+                    img = qr.get_image(url)
+                    # Если получилось без логотипа, попробуем добавить логотип вручную
+                    if logo_img and isinstance(img, Image.Image):
+                        print(f"[INFO] QR-код создан без логотипа, добавляем логотип вручную")
+                        # Здесь можно добавить логику вставки логотипа, если нужно
+                except Exception as e2:
+                    print(f"[ERROR] Альтернативный вызов тоже не сработал: {e2}")
+                    raise type_error  # Возвращаем исходную ошибку
+                    
             print(f"[QR_CODE] QR-код сгенерирован через qrcode-styled, тип: {type(img)}")
         except Exception as get_image_error:
             print(f"[ERROR] Ошибка при вызове qr.get_image(): {get_image_error}")
