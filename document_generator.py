@@ -737,9 +737,9 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 margin_elem.set(qn('w:w'), '0')
                 margin_elem.set(qn('w:type'), 'dxa')
                 tc_mar.append(margin_elem)
-            # Отступ справа - минимальный положительный для сближения с QR-кодом (вместо отрицательного)
+            # Отступ справа - минимальный для сближения с QR-кодом (в пикселях: ~2-3px = ~15-20 twips)
             right_margin = OxmlElement('w:right')
-            right_margin.set(qn('w:w'), '0')  # Нулевой отступ вместо отрицательного для совместимости
+            right_margin.set(qn('w:w'), '20')  # Минимальный отступ ~2-3px для сближения
             right_margin.set(qn('w:type'), 'dxa')
             tc_mar.append(right_margin)
             print(f"[QR_PIN_LAYOUT] Отступы ячейки PIN установлены (все нулевые для совместимости)")
@@ -749,15 +749,15 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 tc_pr.remove(old_tc_mar)
             tc_pr.append(tc_mar)
             para_pin = cell_pin.paragraphs[0]
-            para_pin.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            para_pin.alignment = WD_ALIGN_PARAGRAPH.LEFT  # Выравниваем по левому краю ячейки
             # Убираем отступы параграфа
             para_pin_format = para_pin.paragraph_format
             para_pin_format.space_before = Pt(0)
             para_pin_format.space_after = Pt(0)
-            para_pin_format.left_indent = Pt(0)
+            para_pin_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю
             para_pin_format.right_indent = Pt(0)
             run_pin = para_pin.add_run(str(pin_code))
-            run_pin.font.size = Pt(18)  # Размер шрифта для PIN-кода (уменьшен на 10 единиц)
+            run_pin.font.size = Pt(20)  # Размер шрифта для PIN-кода (компактнее)
             run_pin.font.bold = True
             try:
                 run_pin.font.name = 'Arial'
@@ -785,9 +785,9 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 margin_elem.set(qn('w:w'), '0')
                 margin_elem.set(qn('w:type'), 'dxa')
                 tc_mar_qr.append(margin_elem)
-            # Отступ слева - нулевой вместо отрицательного для совместимости
+            # Отступ слева - минимальный для сближения с PIN-кодом (в пикселях: ~2-3px = ~15-20 twips)
             left_margin = OxmlElement('w:left')
-            left_margin.set(qn('w:w'), '0')  # Нулевой отступ вместо отрицательного для совместимости
+            left_margin.set(qn('w:w'), '20')  # Минимальный отступ ~2-3px для сближения с PIN
             left_margin.set(qn('w:type'), 'dxa')
             tc_mar_qr.append(left_margin)
             print(f"[QR_PIN_LAYOUT] Отступы ячейки QR установлены (все нулевые для совместимости)")
@@ -797,18 +797,17 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 tc_pr_qr.remove(old_tc_mar_qr)
             tc_pr_qr.append(tc_mar_qr)
             para_qr = cell_qr.paragraphs[0]
-            # Выравниваем по левому краю (сдвигаем влево, но без обрезки)
+            # Выравниваем по левому краю ячейки
             para_qr.alignment = WD_ALIGN_PARAGRAPH.LEFT
             # Убираем отступы параграфа
             para_qr_format = para_qr.paragraph_format
             para_qr_format.space_before = Pt(0)
             para_qr_format.space_after = Pt(0)
-            # Убираем отрицательный отступ, чтобы не обрезать QR-код
-            qr_width_inches = 1.4
-            para_qr_format.left_indent = Pt(0)  # Нулевой отступ, чтобы не обрезать QR-код
+            para_qr_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю ячейки
             para_qr_format.right_indent = Pt(0)
             run_qr = para_qr.add_run()
-            # Размер QR-кода (немного уменьшен)
+            # Размер QR-кода - компактнее для лучшего размещения
+            qr_width_inches = 1.2  # Уменьшен с 1.4 до 1.2 для компактности
             run_qr.add_picture(qr_temp_path, width=Inches(qr_width_inches))
             print(f"[QR_PIN_LAYOUT] QR-код добавлен в ячейку 1, размер: {qr_width_inches} дюймов")
             
@@ -834,11 +833,13 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     inner_table = cell.add_table(rows=1, cols=2)
                     # Убираем стиль таблицы
                     inner_table.style = None
+                    # Выравниваем таблицу по левому краю родительской ячейки
+                    inner_table.alignment = WD_ALIGN_PARAGRAPH.LEFT
                     from docx.shared import Cm, Pt
-                    # Уменьшаем ширину колонок для компактности
-                    inner_table.columns[0].width = Cm(1.5)  # Достаточная ширина для PIN-кода (чтобы не переносился)
-                    inner_table.columns[1].width = Cm(3.5)  # Колонка для QR-кода
-                    print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(1.5)}, QR={Cm(3.5)}")
+                    # Уменьшаем ширину колонок для компактности - делаем их ближе друг к другу
+                    inner_table.columns[0].width = Cm(1.0)  # Минимальная ширина для PIN-кода (4 цифры)
+                    inner_table.columns[1].width = Cm(2.8)  # Компактная колонка для QR-кода
+                    print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(1.0)}, QR={Cm(2.8)}, выравнивание: LEFT")
                     
                     # Убираем отступы в ячейках
                     from docx.oxml.ns import qn
@@ -863,9 +864,9 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                         margin_elem.set(qn('w:w'), '0')
                         margin_elem.set(qn('w:type'), 'dxa')
                         tc_mar_pin.append(margin_elem)
-                    # Отступ справа - нулевой вместо отрицательного для совместимости
+                    # Отступ справа - минимальный для сближения с QR-кодом (в пикселях: ~2-3px = ~15-20 twips)
                     right_margin_pin = OxmlElement('w:right')
-                    right_margin_pin.set(qn('w:w'), '0')  # Нулевой отступ вместо отрицательного для совместимости
+                    right_margin_pin.set(qn('w:w'), '20')  # Минимальный отступ ~2-3px для сближения
                     right_margin_pin.set(qn('w:type'), 'dxa')
                     tc_mar_pin.append(right_margin_pin)
                     old_tc_mar_pin = tc_pr_pin.find(qn('w:tcMar'))
@@ -873,15 +874,15 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                         tc_pr_pin.remove(old_tc_mar_pin)
                     tc_pr_pin.append(tc_mar_pin)
                     para_pin = inner_cell_pin.paragraphs[0]
-                    para_pin.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    para_pin.alignment = WD_ALIGN_PARAGRAPH.LEFT  # Выравниваем по левому краю ячейки
                     # Убираем отступы параграфа
                     para_pin_format = para_pin.paragraph_format
                     para_pin_format.space_before = Pt(0)
                     para_pin_format.space_after = Pt(0)
-                    para_pin_format.left_indent = Pt(0)
+                    para_pin_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю
                     para_pin_format.right_indent = Pt(0)
                     run_pin = para_pin.add_run(str(pin_code))
-                    run_pin.font.size = Pt(24)  # Размер шрифта для PIN-кода (уменьшен на 10 единиц)
+                    run_pin.font.size = Pt(20)  # Размер шрифта для PIN-кода (компактнее)
                     run_pin.font.bold = True
                     try:
                         run_pin.font.name = 'Arial'
@@ -907,9 +908,9 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                         margin_elem.set(qn('w:w'), '0')
                         margin_elem.set(qn('w:type'), 'dxa')
                         tc_mar_qr.append(margin_elem)
-                    # Отступ слева - нулевой вместо отрицательного для совместимости
+                    # Отступ слева - минимальный для сближения с PIN-кодом (в пикселях: ~2-3px = ~15-20 twips)
                     left_margin = OxmlElement('w:left')
-                    left_margin.set(qn('w:w'), '0')  # Нулевой отступ вместо отрицательного для совместимости
+                    left_margin.set(qn('w:w'), '20')  # Минимальный отступ ~2-3px для сближения с PIN
                     left_margin.set(qn('w:type'), 'dxa')
                     tc_mar_qr.append(left_margin)
                     old_tc_mar_qr = tc_pr_qr.find(qn('w:tcMar'))
@@ -917,19 +918,17 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                         tc_pr_qr.remove(old_tc_mar_qr)
                     tc_pr_qr.append(tc_mar_qr)
                     para_qr = inner_cell_qr.paragraphs[0]
-                    # Выравниваем по левому краю (сдвигаем влево, но без обрезки)
+                    # Выравниваем по левому краю ячейки
                     para_qr.alignment = WD_ALIGN_PARAGRAPH.LEFT
                     # Убираем отступы параграфа
                     para_qr_format = para_qr.paragraph_format
                     para_qr_format.space_before = Pt(0)
                     para_qr_format.space_after = Pt(0)
-                    # Небольшой отрицательный отступ для сдвига влево (очень маленький, чтобы не обрезать)
-                    qr_width_inches = 1.4
-                    # Отрицательный отступ в 2-3 пикселя для сдвига влево
-                    para_qr_format.left_indent = Pt(0)  # Нулевой отступ, чтобы не обрезать QR-код
+                    para_qr_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю ячейки
                     para_qr_format.right_indent = Pt(0)
                     run_qr = para_qr.add_run()
-                    # Размер QR-кода (немного уменьшен)
+                    # Размер QR-кода - компактнее для лучшего размещения
+                    qr_width_inches = 1.2  # Уменьшен с 1.4 до 1.2 для компактности
                     run_qr.add_picture(qr_temp_path, width=Inches(qr_width_inches))
                     print(f"[QR_PIN_LAYOUT] QR-код добавлен во вложенную таблицу, ячейка 1, размер: {qr_width_inches} дюймов")
                     print(f"[QR_PIN_LAYOUT] Вложенная таблица завершена: PIN слева (ячейка 0), QR справа (ячейка 1)")
