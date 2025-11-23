@@ -65,9 +65,9 @@ if sys.platform == 'win32':
             LIBREOFFICE_AVAILABLE = True
             print(f"[INFO] LibreOffice найден и доступен через PATH: {LIBREOFFICE_CMD}")
         elif os.path.exists(LIBREOFFICE_CMD) and os.path.isfile(LIBREOFFICE_CMD):
-                LIBREOFFICE_AVAILABLE = True
+            LIBREOFFICE_AVAILABLE = True
             print(f"[INFO] LibreOffice найден и доступен: {LIBREOFFICE_CMD}")
-            else:
+        else:
             LIBREOFFICE_ERROR = f"LibreOffice найден по пути, но файл недоступен: {LIBREOFFICE_CMD}"
     else:
         LIBREOFFICE_ERROR = "LibreOffice не найден. Установите LibreOffice с https://www.libreoffice.org/download/"
@@ -86,8 +86,8 @@ else:
             LIBREOFFICE_CMD = 'libreoffice'
             print(f"[INFO] LibreOffice найден в PATH: {libreoffice_path}")
         else:
-        LIBREOFFICE_ERROR = "libreoffice не установлен. Установите: sudo apt-get install libreoffice libreoffice-writer"
-        print(f"[WARNING] {LIBREOFFICE_ERROR}")
+            LIBREOFFICE_ERROR = "libreoffice не установлен. Установите: sudo apt-get install libreoffice libreoffice-writer"
+            print(f"[WARNING] {LIBREOFFICE_ERROR}")
     except Exception as e:
         LIBREOFFICE_ERROR = f"Ошибка при проверке LibreOffice: {e}"
         print(f"[WARNING] {LIBREOFFICE_ERROR}")
@@ -310,24 +310,25 @@ def convert_docx_to_pdf_from_docx(docx_path, document_data, output_path=None, ap
         # Если LibreOffice не сработал или недоступен
         if not (LIBREOFFICE_AVAILABLE and LIBREOFFICE_CMD):
             error_msg = f"LibreOffice недоступен. {LIBREOFFICE_ERROR if LIBREOFFICE_ERROR else 'Не установлен'}"
-        print(f"[ERROR] {error_msg}")
-        
-        # Предлагаем решение
-        print("[SOLUTION] Решение проблем с LibreOffice:")
-        if sys.platform == 'win32':
-            print("  1. Если файл конфигурации повреждён:")
-            print("     - Закройте все процессы LibreOffice")
-            print("     - Удалите папку: %APPDATA%\\LibreOffice")
-            print("     - Или переустановите LibreOffice с https://www.libreoffice.org/download/")
-            print("  2. Если LibreOffice не установлен:")
+            print(f"[ERROR] {error_msg}")
+            
+            # Предлагаем решение
+            print("[SOLUTION] Решение проблем с LibreOffice:")
+            if sys.platform == 'win32':
+                print("  1. Если файл конфигурации повреждён:")
+                print("     - Закройте все процессы LibreOffice")
+                print("     - Удалите папку: %APPDATA%\\LibreOffice")
+                print("     - Или переустановите LibreOffice с https://www.libreoffice.org/download/")
+                print("  2. Если LibreOffice не установлен:")
                 print("     - Скачайте с https://www.libreoffice.org/download/")
                 print("     - Установите в стандартную директорию")
                 print("     - Путь должен быть: C:\\Program Files\\LibreOffice\\program\\soffice.exe")
                 print("     - После установки перезапустите приложение")
-        else:
-                print("  sudo apt-get install -y libreoffice libreoffice-writer")
-            print("  Если конфигурация повреждена:")
-            print("  rm -rf ~/.config/libreoffice")
+            else:
+                print("  1. Установите LibreOffice:")
+                print("     sudo apt-get install -y libreoffice libreoffice-writer")
+                print("  2. Если конфигурация повреждена:")
+                print("     rm -rf ~/.config/libreoffice")
         
         if temp_docx_path and os.path.exists(temp_docx_path):
             try:
