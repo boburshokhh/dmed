@@ -817,17 +817,6 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             # Добавляем небольшой отступ слева для сдвига вправо (~10px)
             para_pin_format.left_indent = Pt(10)  # Сдвиг вправо на ~10px
             para_pin_format.right_indent = Pt(0)
-            from docx.oxml.ns import qn
-            from docx.oxml import OxmlElement
-            p_pr = para_pin._element.get_or_add_pPr()
-            # Удаляем старый ind если есть
-            old_ind = p_pr.find(qn('w:ind'))
-            if old_ind is not None:
-                p_pr.remove(old_ind)
-            # Создаем новый ind с отрицательным right_indent
-            ind = OxmlElement('w:ind')
-            ind.set(qn('w:right'), '-300')  # Отрицательный отступ ~24px для сдвига правее (увеличен для большего сдвига)
-            p_pr.append(ind)
             # Предотвращаем перенос текста на уровне параграфа
             para_pin_format.widow_control = False
             para_pin_format.keep_together = True
