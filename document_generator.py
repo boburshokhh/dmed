@@ -769,8 +769,8 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             
             # Настраиваем ширину колонок - делаем компактнее
             from docx.shared import Cm, Pt
-            # Для 4-значного PIN-кода с размером шрифта 20pt нужно минимум 1.8-2.0 см
-            table.columns[0].width = Cm(2.0)  # Увеличена ширина для PIN-кода (чтобы точно не переносился)
+            # Для 4-значного PIN-кода с размером шрифта 20pt и left_indent 25px нужно минимум 2.5-3.0 см
+            table.columns[0].width = Cm(3.0)  # Увеличена ширина для PIN-кода (чтобы точно не переносился с учетом left_indent)
             # Увеличиваем ширину для QR-кода, чтобы он не обрезался (1.1 дюйма = ~2.79 см, нужно минимум 5.0 см с отступами и сдвигом)
             table.columns[1].width = Cm(5.0)  # Увеличена ширина для QR-кода (чтобы не обрезался при сдвиге вправо)
             print(f"[QR_PIN_LAYOUT] Ширина колонок: PIN={Cm(2.0)}, QR={Cm(5.0)}, выравнивание: PIN=RIGHT, QR=LEFT")
@@ -928,8 +928,8 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     from docx.shared import Cm, Pt
                     # Уменьшаем ширину колонок для компактности - делаем их ближе друг к другу
                     # Увеличиваем ширину для PIN-кода, чтобы он не переносился на две строки
-                    # Для 4-значного PIN-кода с размером шрифта 20pt нужно минимум 1.8-2.0 см
-                    inner_table.columns[0].width = Cm(2.0)  # Увеличена ширина для PIN-кода (чтобы точно не переносился)
+                    # Для 4-значного PIN-кода с размером шрифта 20pt и left_indent 25px нужно минимум 2.5-3.0 см
+                    inner_table.columns[0].width = Cm(3.0)  # Увеличена ширина для PIN-кода (чтобы точно не переносился с учетом left_indent)
                     # Увеличиваем ширину для QR-кода, чтобы он не обрезался (1.1 дюйма = ~2.79 см, нужно минимум 5.0 см с отступами и сдвигом)
                     inner_table.columns[1].width = Cm(5.0)  # Увеличена ширина для QR-кода (чтобы не обрезался при сдвиге вправо)
                     print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(2.0)}, QR={Cm(5.0)}, выравнивание: PIN=RIGHT, QR=LEFT")
@@ -997,10 +997,6 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     no_break = OxmlElement('w:noBreak')
                     r_pr.append(no_break)
                     print(f"[QR_PIN_LAYOUT] PIN-код добавлен как одна строка: '{pin_text}'")
-                    from docx.oxml.ns import qn as qn_ns
-                    r_pr = run_pin._element.get_or_add_rPr()
-                    no_break = OxmlElement('w:noBreak')
-                    r_pr.append(no_break)
                     try:
                         run_pin.font.name = 'Arial'
                     except:
