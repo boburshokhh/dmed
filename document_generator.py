@@ -739,12 +739,12 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 margin_elem.set(qn('w:w'), '0')
                 margin_elem.set(qn('w:type'), 'dxa')
                 tc_mar.append(margin_elem)
-            # Отступ справа - отрицательный для сдвига вправо на 20px (20px ≈ 300 twips)
+            # Отступ справа - нулевой, чтобы прижать к правому краю без отступов
             right_margin = OxmlElement('w:right')
-            right_margin.set(qn('w:w'), '-240')  # Отрицательный отступ ~20px для сдвига правее
+            right_margin.set(qn('w:w'), '0')  # Нулевой отступ - прижимаем к правому краю
             right_margin.set(qn('w:type'), 'dxa')
             tc_mar.append(right_margin)
-            print(f"[QR_PIN_LAYOUT] Отступы ячейки PIN установлены: right margin = -240 twips (~20px правее)")
+            print(f"[QR_PIN_LAYOUT] Отступы ячейки PIN установлены: все нулевые, прижато к правому краю без отступов")
             # Удаляем старый tcMar если есть
             old_tc_mar = tc_pr.find(qn('w:tcMar'))
             if old_tc_mar is not None:
@@ -806,9 +806,9 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             left_margin.set(qn('w:w'), '20')  # Минимальный отступ ~2-3px для сближения с PIN
             left_margin.set(qn('w:type'), 'dxa')
             tc_mar_qr.append(left_margin)
-            # Отступ справа - отрицательный для сдвига вправо на 20px (20px ≈ 300 twips)
+            # Отступ справа - нулевой, чтобы прижать к правому краю без отступов
             right_margin_qr = OxmlElement('w:right')
-            right_margin_qr.set(qn('w:w'), '-240')  # Отрицательный отступ ~20px для сдвига правее
+            right_margin_qr.set(qn('w:w'), '0')  # Нулевой отступ - прижимаем к правому краю
             right_margin_qr.set(qn('w:type'), 'dxa')
             tc_mar_qr.append(right_margin_qr)
             print(f"[QR_PIN_LAYOUT] Отступы ячейки QR установлены (все нулевые для совместимости)")
@@ -893,10 +893,9 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                         margin_elem.set(qn('w:w'), '0')
                         margin_elem.set(qn('w:type'), 'dxa')
                         tc_mar_pin.append(margin_elem)
-                    # Отступ справа - уменьшаем для сдвига вправо (20px = ~300 twips, но делаем отрицательным для сдвига правее)
+                    # Отступ справа - нулевой, чтобы прижать к правому краю без отступов
                     right_margin_pin = OxmlElement('w:right')
-                    # Отрицательный отступ справа сдвигает содержимое правее (20px ≈ 300 twips, но используем меньше для безопасности)
-                    right_margin_pin.set(qn('w:w'), '-240')  # Отрицательный отступ ~20px для сдвига правее
+                    right_margin_pin.set(qn('w:w'), '0')  # Нулевой отступ - прижимаем к правому краю
                     right_margin_pin.set(qn('w:type'), 'dxa')
                     tc_mar_pin.append(right_margin_pin)
                     old_tc_mar_pin = tc_pr_pin.find(qn('w:tcMar'))
@@ -965,10 +964,9 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     left_margin.set(qn('w:w'), '20')  # Минимальный отступ ~2-3px для сближения с PIN
                     left_margin.set(qn('w:type'), 'dxa')
                     tc_mar_qr.append(left_margin)
-                    # Отступ справа - уменьшаем для сдвига вправо (20px = ~300 twips)
+                    # Отступ справа - нулевой, чтобы прижать к правому краю без отступов
                     right_margin_qr = OxmlElement('w:right')
-                    # Отрицательный отступ справа сдвигает содержимое правее (20px ≈ 300 twips, но используем меньше для безопасности)
-                    right_margin_qr.set(qn('w:w'), '-240')  # Отрицательный отступ ~20px для сдвига правее
+                    right_margin_qr.set(qn('w:w'), '0')  # Нулевой отступ - прижимаем к правому краю
                     right_margin_qr.set(qn('w:type'), 'dxa')
                     tc_mar_qr.append(right_margin_qr)
                     old_tc_mar_qr = tc_pr_qr.find(qn('w:tcMar'))
