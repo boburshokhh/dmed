@@ -710,9 +710,10 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             
             # Настраиваем ширину колонок - делаем компактнее
             from docx.shared import Cm, Pt
-            table.columns[0].width = Cm(1.5)  # Достаточная ширина для PIN-кода (чтобы не переносился)
-            table.columns[1].width = Cm(3.6)  # Колонка для QR-кода
-            print(f"[QR_PIN_LAYOUT] Ширина колонок: PIN={Cm(1.5)}, QR={Cm(3.6)}")
+            # Для 4-значного PIN-кода с размером шрифта 20pt нужно минимум 1.8-2.0 см
+            table.columns[0].width = Cm(2.0)  # Увеличена ширина для PIN-кода (чтобы точно не переносился)
+            table.columns[1].width = Cm(2.8)  # Компактная колонка для QR-кода
+            print(f"[QR_PIN_LAYOUT] Ширина колонок: PIN={Cm(2.0)}, QR={Cm(2.8)}")
             
             # Убираем отступы в ячейках для компактности
             from docx.oxml.ns import qn
@@ -759,15 +760,20 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             # Предотвращаем перенос текста на уровне параграфа
             para_pin_format.widow_control = False
             para_pin_format.keep_together = True
-            # Добавляем PIN-код как один run
-            pin_text = str(pin_code)
+            # Очищаем параграф перед добавлением (на случай если там что-то осталось)
+            para_pin.clear()
+            # Добавляем PIN-код как один run - убеждаемся что он в одной строке
+            pin_text = str(pin_code).strip()  # Убираем пробелы
+            # Убеждаемся, что PIN-код в одной строке - заменяем все пробелы и переносы
+            pin_text = pin_text.replace('\n', '').replace('\r', '').replace(' ', '')
             run_pin = para_pin.add_run(pin_text)
-            run_pin.font.size = Pt(20)  # Размер шрифта для PIN-кода (компактнее)
+            run_pin.font.size = Pt(20)  # Размер шрифта для PIN-кода
             run_pin.font.bold = True
             # Добавляем атрибут noBreak для предотвращения переноса внутри run
             r_pr = run_pin._element.get_or_add_rPr()
             no_break = OxmlElement('w:noBreak')
             r_pr.append(no_break)
+            print(f"[QR_PIN_LAYOUT] PIN-код добавлен как одна строка: '{pin_text}'")
             try:
                 run_pin.font.name = 'Arial'
             except:
@@ -835,8 +841,12 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 if in_table_cell and cell:
                     # Если мы в ячейке таблицы, создаем вложенную таблицу
                     print(f"[QR_PIN_LAYOUT] Найден плейсхолдер в ячейке таблицы, создаем вложенную таблицу")
-                    # Очищаем ячейку
-                    cell.text = ''
+                    # Полностью очищаем ячейку - удаляем все параграфы
+                    # Это важно, так как PIN-код мог быть уже заменен и разбит на несколько параграфов
+                    for paragraph in cell.paragraphs[:]:
+                        p_element = paragraph._element
+                        p_element.getparent().remove(p_element)
+                    print(f"[QR_PIN_LAYOUT] Ячейка полностью очищена от всех параграфов")
                     
                     # Создаем вложенную таблицу в ячейке
                     inner_table = cell.add_table(rows=1, cols=2)
@@ -847,9 +857,10 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     from docx.shared import Cm, Pt
                     # Уменьшаем ширину колонок для компактности - делаем их ближе друг к другу
                     # Увеличиваем ширину для PIN-кода, чтобы он не переносился на две строки
-                    inner_table.columns[0].width = Cm(1.5)  # Достаточная ширина для PIN-кода (4 цифры, чтобы не переносился)
+                    # Для 4-значного PIN-кода с размером шрифта 20pt нужно минимум 1.8-2.0 см
+                    inner_table.columns[0].width = Cm(2.0)  # Увеличена ширина для PIN-кода (чтобы точно не переносился)
                     inner_table.columns[1].width = Cm(2.8)  # Компактная колонка для QR-кода
-                    print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(1.5)}, QR={Cm(2.8)}, выравнивание: LEFT")
+                    print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(2.0)}, QR={Cm(2.8)}, выравнивание: LEFT")
                     
                     # Убираем отступы в ячейках
                     from docx.oxml.ns import qn
@@ -895,14 +906,23 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     para_pin_format.widow_control = False
                     para_pin_format.keep_together = True
                     # Добавляем PIN-код как один run - убеждаемся что он не переносится
-                    pin_text = str(pin_code)
+                    # Важно: добавляем PIN-код как одну строку без пробелов и переносов
+                    pin_text = str(pin_code).strip()  # Убираем пробелы
+                    # Убеждаемся, что PIN-код в одной строке - заменяем все пробелы и переносы
+                    pin_text = pin_text.replace('\n', '').replace('\r', '').replace(' ', '')
+                    
+                    # Очищаем параграф перед добавлением (на случай если там что-то осталось)
+                    para_pin.clear()
+                    
+                    # Добавляем PIN-код как один run
                     run_pin = para_pin.add_run(pin_text)
-                    run_pin.font.size = Pt(20)  # Размер шрифта для PIN-кода (компактнее)
+                    run_pin.font.size = Pt(20)  # Размер шрифта для PIN-кода
                     run_pin.font.bold = True
                     # Добавляем атрибут noBreak для предотвращения переноса внутри run
                     r_pr = run_pin._element.get_or_add_rPr()
                     no_break = OxmlElement('w:noBreak')
                     r_pr.append(no_break)
+                    print(f"[QR_PIN_LAYOUT] PIN-код добавлен как одна строка: '{pin_text}'")
                     from docx.oxml.ns import qn as qn_ns
                     r_pr = run_pin._element.get_or_add_rPr()
                     no_break = OxmlElement('w:noBreak')
