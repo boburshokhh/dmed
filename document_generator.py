@@ -707,6 +707,22 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             table = doc.add_table(rows=1, cols=2)
             # Убираем стиль таблицы чтобы не было видимых границ
             table.style = None
+            # Убираем spacing между ячейками таблицы через XML
+            from docx.oxml.ns import qn
+            from docx.oxml import OxmlElement
+            tbl_pr = table._element.tblPr
+            if tbl_pr is None:
+                tbl_pr = OxmlElement('w:tblPr')
+                table._element.insert(0, tbl_pr)
+            # Устанавливаем cell spacing в 0
+            tbl_cell_spacing = OxmlElement('w:tblCellSpacing')
+            tbl_cell_spacing.set(qn('w:w'), '0')
+            tbl_cell_spacing.set(qn('w:type'), 'dxa')
+            # Удаляем старый cell spacing если есть
+            old_cell_spacing = tbl_pr.find(qn('w:tblCellSpacing'))
+            if old_cell_spacing is not None:
+                tbl_pr.remove(old_cell_spacing)
+            tbl_pr.append(tbl_cell_spacing)
             
             # Настраиваем ширину колонок - делаем компактнее
             from docx.shared import Cm, Pt
@@ -717,8 +733,6 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             print(f"[QR_PIN_LAYOUT] Ширина колонок: PIN={Cm(2.0)}, QR={Cm(5.0)}, выравнивание содержимого: RIGHT")
             
             # Убираем отступы в ячейках для компактности
-            from docx.oxml.ns import qn
-            from docx.oxml import OxmlElement
             
             # Ячейка 1: PIN-код слева (большой жирный текст)
             cell_pin = table.rows[0].cells[0]
@@ -744,7 +758,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             right_margin.set(qn('w:w'), '0')  # Нулевой отступ
             right_margin.set(qn('w:type'), 'dxa')
             tc_mar.append(right_margin)
-            print(f"[QR_PIN_LAYOUT] Отступы ячейки PIN установлены: все нулевые, используем отрицательный right_indent через XML для сдвига правее")
+            print(f"[QR_PIN_LAYOUT] Отступы ячейки PIN установлены: все нулевые, без отрицательного right_indent для максимального сближения с QR-кодом")
             # Удаляем старый tcMar если есть
             old_tc_mar = tc_pr.find(qn('w:tcMar'))
             if old_tc_mar is not None:
@@ -768,7 +782,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 p_pr.remove(old_ind)
             # Создаем новый ind с отрицательным right_indent
             ind = OxmlElement('w:ind')
-            ind.set(qn('w:right'), '-360')  # Отрицательный отступ ~24px для сдвига правее (увеличен для большего сдвига)
+            ind.set(qn('w:right'), '-300')  # Отрицательный отступ ~24px для сдвига правее (увеличен для большего сдвига)
             p_pr.append(ind)
             # Предотвращаем перенос текста на уровне параграфа
             para_pin_format.widow_control = False
@@ -934,18 +948,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     para_pin_format.space_after = Pt(0)
                     para_pin_format.left_indent = Pt(0)
                     para_pin_format.right_indent = Pt(0)
-                    # Устанавливаем отрицательный right_indent через XML для сдвига вправо (20px ≈ 300 twips)
-                    from docx.oxml.ns import qn
-                    from docx.oxml import OxmlElement
-                    p_pr_pin = para_pin._element.get_or_add_pPr()
-                    # Удаляем старый ind если есть
-                    old_ind_pin = p_pr_pin.find(qn('w:ind'))
-                    if old_ind_pin is not None:
-                        p_pr_pin.remove(old_ind_pin)
-                    # Создаем новый ind с отрицательным right_indent
-                    ind_pin = OxmlElement('w:ind')
-                    ind_pin.set(qn('w:right'), '-300')  # Отрицательный отступ ~24px для сдвига правее (увеличен для большего сдвига)
-                    p_pr_pin.append(ind_pin)
+                    # НЕ устанавливаем отрицательный right_indent для PIN-кода, чтобы он был максимально близко к QR-коду
                     # Предотвращаем перенос текста на уровне параграфа
                     para_pin_format.widow_control = False
                     para_pin_format.keep_together = True
