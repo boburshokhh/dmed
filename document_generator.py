@@ -756,9 +756,18 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             para_pin_format.space_after = Pt(0)
             para_pin_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю
             para_pin_format.right_indent = Pt(0)
-            run_pin = para_pin.add_run(str(pin_code))
+            # Предотвращаем перенос текста на уровне параграфа
+            para_pin_format.widow_control = False
+            para_pin_format.keep_together = True
+            # Добавляем PIN-код как один run
+            pin_text = str(pin_code)
+            run_pin = para_pin.add_run(pin_text)
             run_pin.font.size = Pt(20)  # Размер шрифта для PIN-кода (компактнее)
             run_pin.font.bold = True
+            # Добавляем атрибут noBreak для предотвращения переноса внутри run
+            r_pr = run_pin._element.get_or_add_rPr()
+            no_break = OxmlElement('w:noBreak')
+            r_pr.append(no_break)
             try:
                 run_pin.font.name = 'Arial'
             except:
@@ -837,9 +846,10 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     inner_table.alignment = WD_ALIGN_PARAGRAPH.LEFT
                     from docx.shared import Cm, Pt
                     # Уменьшаем ширину колонок для компактности - делаем их ближе друг к другу
-                    inner_table.columns[0].width = Cm(1.0)  # Минимальная ширина для PIN-кода (4 цифры)
+                    # Увеличиваем ширину для PIN-кода, чтобы он не переносился на две строки
+                    inner_table.columns[0].width = Cm(1.5)  # Достаточная ширина для PIN-кода (4 цифры, чтобы не переносился)
                     inner_table.columns[1].width = Cm(2.8)  # Компактная колонка для QR-кода
-                    print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(1.0)}, QR={Cm(2.8)}, выравнивание: LEFT")
+                    print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(1.5)}, QR={Cm(2.8)}, выравнивание: LEFT")
                     
                     # Убираем отступы в ячейках
                     from docx.oxml.ns import qn
@@ -881,9 +891,22 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     para_pin_format.space_after = Pt(0)
                     para_pin_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю
                     para_pin_format.right_indent = Pt(0)
-                    run_pin = para_pin.add_run(str(pin_code))
+                    # Предотвращаем перенос текста на уровне параграфа
+                    para_pin_format.widow_control = False
+                    para_pin_format.keep_together = True
+                    # Добавляем PIN-код как один run - убеждаемся что он не переносится
+                    pin_text = str(pin_code)
+                    run_pin = para_pin.add_run(pin_text)
                     run_pin.font.size = Pt(20)  # Размер шрифта для PIN-кода (компактнее)
                     run_pin.font.bold = True
+                    # Добавляем атрибут noBreak для предотвращения переноса внутри run
+                    r_pr = run_pin._element.get_or_add_rPr()
+                    no_break = OxmlElement('w:noBreak')
+                    r_pr.append(no_break)
+                    from docx.oxml.ns import qn as qn_ns
+                    r_pr = run_pin._element.get_or_add_rPr()
+                    no_break = OxmlElement('w:noBreak')
+                    r_pr.append(no_break)
                     try:
                         run_pin.font.name = 'Arial'
                     except:
