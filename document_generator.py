@@ -700,7 +700,50 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
         
         qr_placeholder_found = False
         
-        def create_pin_qr_table():
+        def parse_placeholder_alignment(text):
+            """
+            Парсит плейсхолдер и определяет выравнивание из него.
+            Поддерживаемые форматы:
+            - {{qr_code:left}} - QR-код слева
+            - {{qr_code:right}} - QR-код справа
+            - {{pin_code_with_qr:left}} - оба вместе, выравнивание слева
+            - {{pin_code_with_qr:right}} - оба вместе, выравнивание справа
+            - {{pin_code:left}} - только PIN-код слева
+            - {{pin_code:right}} - только PIN-код справа
+            
+            Возвращает: (placeholder_type, pin_alignment, qr_alignment)
+            placeholder_type: 'qr_code', 'pin_code', 'pin_code_with_qr'
+            pin_alignment: 'left' или 'right'
+            qr_alignment: 'left' или 'right'
+            """
+            import re
+            # Ищем плейсхолдеры с указанием выравнивания
+            patterns = [
+                (r'\{\{qr_code:(left|right)\}\}', 'qr_code'),
+                (r'\{\{pin_code_with_qr:(left|right)\}\}', 'pin_code_with_qr'),
+                (r'\{\{pin_code:(left|right)\}\}', 'pin_code'),
+            ]
+            
+            for pattern, ptype in patterns:
+                match = re.search(pattern, text)
+                if match:
+                    alignment = match.group(1)
+                    if ptype == 'qr_code':
+                        return (ptype, 'right', alignment)  # PIN по умолчанию справа
+                    elif ptype == 'pin_code':
+                        return (ptype, alignment, 'left')  # QR по умолчанию слева
+                    else:  # pin_code_with_qr
+                        return (ptype, alignment, alignment)  # Оба одинаково
+            
+            # Если не найден плейсхолдер с выравниванием, проверяем старые форматы
+            if '{{qr_code}}' in text or '{{pin_code_with_qr}}' in text:
+                return ('pin_code_with_qr', 'right', 'left')  # По умолчанию: PIN справа, QR слева
+            elif '{{pin_code}}' in text:
+                return ('pin_code', 'right', None)  # Только PIN, по умолчанию справа
+            
+            return (None, 'right', 'left')  # По умолчанию
+        
+        def create_pin_qr_table(pin_alignment='right', qr_alignment='left'):
             """Создает таблицу с PIN-кодом слева и QR-кодом справа"""
             print(f"[QR_PIN_LAYOUT] Создаем таблицу для PIN ({pin_code}) и QR-кода")
             # Создаем таблицу с двумя колонками: PIN-код слева, QR-код справа
@@ -765,7 +808,8 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 tc_pr.remove(old_tc_mar)
             tc_pr.append(tc_mar)
             para_pin = cell_pin.paragraphs[0]
-            para_pin.alignment = WD_ALIGN_PARAGRAPH.RIGHT  # Выравниваем по правому краю ячейки
+            # Выравниваем PIN-код согласно параметру
+            para_pin.alignment = WD_ALIGN_PARAGRAPH.RIGHT if pin_alignment == 'right' else WD_ALIGN_PARAGRAPH.LEFT
             # Убираем отступы параграфа
             para_pin_format = para_pin.paragraph_format
             para_pin_format.space_before = Pt(0)
@@ -844,8 +888,8 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 tc_pr_qr.remove(old_tc_mar_qr)
             tc_pr_qr.append(tc_mar_qr)
             para_qr = cell_qr.paragraphs[0]
-            # Выравниваем по левому краю ячейки
-            para_qr.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            # Выравниваем QR-код согласно параметру
+            para_qr.alignment = WD_ALIGN_PARAGRAPH.LEFT if qr_alignment == 'left' else WD_ALIGN_PARAGRAPH.RIGHT
             # Убираем отступы параграфа
             para_qr_format = para_qr.paragraph_format
             para_qr_format.space_before = Pt(0)
@@ -866,14 +910,18 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             return table
         
         def replace_qr_placeholder(paragraph, in_table_cell=False, cell=None):
-            """Заменяет плейсхолдер QR-кода на таблицу с PIN-кодом слева и QR-кодом справа"""
+            """Заменяет плейсхолдер QR-кода на таблицу с PIN-кодом и QR-кодом"""
             nonlocal qr_placeholder_found
-            if '{{qr_code}}' in paragraph.text or '{{pin_code_with_qr}}' in paragraph.text:
+            # Парсим плейсхолдер и определяем выравнивание
+            placeholder_type, pin_align, qr_align = parse_placeholder_alignment(paragraph.text)
+            
+            if placeholder_type:
                 qr_placeholder_found = True
+                print(f"[QR_PIN_LAYOUT] Найден плейсхолдер: {placeholder_type}, выравнивание: PIN={pin_align}, QR={qr_align}")
                 
                 if in_table_cell and cell:
                     # Если мы в ячейке таблицы, создаем вложенную таблицу
-                    print(f"[QR_PIN_LAYOUT] Найден плейсхолдер в ячейке таблицы, создаем вложенную таблицу")
+                    print(f"[QR_PIN_LAYOUT] Найден плейсхолдер в ячейке таблицы, создаем вложенную таблицу с выравниванием: PIN={pin_align}, QR={qr_align}")
                     # Полностью очищаем ячейку - удаляем все параграфы
                     # Это важно, так как PIN-код мог быть уже заменен и разбит на несколько параграфов
                     for paragraph in cell.paragraphs[:]:
@@ -929,7 +977,8 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                         tc_pr_pin.remove(old_tc_mar_pin)
                     tc_pr_pin.append(tc_mar_pin)
                     para_pin = inner_cell_pin.paragraphs[0]
-                    para_pin.alignment = WD_ALIGN_PARAGRAPH.RIGHT  # Выравниваем по правому краю ячейки
+                    # Выравниваем PIN-код согласно параметру
+                    para_pin.alignment = WD_ALIGN_PARAGRAPH.RIGHT if pin_align == 'right' else WD_ALIGN_PARAGRAPH.LEFT
                     # Убираем отступы параграфа
                     para_pin_format = para_pin.paragraph_format
                     para_pin_format.space_before = Pt(0)
@@ -1001,8 +1050,8 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                         tc_pr_qr.remove(old_tc_mar_qr)
                     tc_pr_qr.append(tc_mar_qr)
                     para_qr = inner_cell_qr.paragraphs[0]
-                    # Выравниваем по левому краю ячейки
-                    para_qr.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                    # Выравниваем QR-код согласно параметру
+                    para_qr.alignment = WD_ALIGN_PARAGRAPH.LEFT if qr_align == 'left' else WD_ALIGN_PARAGRAPH.RIGHT
                     # Убираем отступы параграфа
                     para_qr_format = para_qr.paragraph_format
                     para_qr_format.space_before = Pt(0)
@@ -1021,8 +1070,10 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     # Получаем родительский элемент параграфа
                     parent = paragraph._element.getparent()
                     
-                    # Создаем таблицу
-                    table = create_pin_qr_table()
+                    # Создаем таблицу с выравниванием из плейсхолдера
+                    # Если qr_align None, используем значение по умолчанию
+                    qr_align_final = qr_align if qr_align is not None else 'left'
+                    table = create_pin_qr_table(pin_alignment=pin_align, qr_alignment=qr_align_final)
                     
                     # Вставляем таблицу перед параграфом
                     table_element = table._element
@@ -1103,8 +1154,9 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
         
         if not qr_placeholder_found:
             # Если плейсхолдер не найден, добавляем таблицу с PIN-кодом и QR-кодом в конец документа
-            print(f"[QR_PIN_LAYOUT] Плейсхолдер не найден, добавляем таблицу в конец документа")
-            create_pin_qr_table()
+            # Используем значения по умолчанию: PIN справа, QR слева
+            print(f"[QR_PIN_LAYOUT] Плейсхолдер не найден, добавляем таблицу в конец документа с выравниванием по умолчанию")
+            create_pin_qr_table(pin_alignment='right', qr_alignment='left')
         else:
             print(f"[QR_PIN_LAYOUT] Плейсхолдер найден и заменен")
         
