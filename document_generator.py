@@ -730,7 +730,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             table.columns[0].width = Cm(2.0)  # Увеличена ширина для PIN-кода (чтобы точно не переносился)
             # Увеличиваем ширину для QR-кода, чтобы он не обрезался (1.1 дюйма = ~2.79 см, нужно минимум 5.0 см с отступами и сдвигом)
             table.columns[1].width = Cm(5.0)  # Увеличена ширина для QR-кода (чтобы не обрезался при сдвиге вправо)
-            print(f"[QR_PIN_LAYOUT] Ширина колонок: PIN={Cm(2.0)}, QR={Cm(5.0)}, выравнивание содержимого: RIGHT")
+            print(f"[QR_PIN_LAYOUT] Ширина колонок: PIN={Cm(2.0)}, QR={Cm(5.0)}, выравнивание: PIN=RIGHT, QR=LEFT")
             
             # Убираем отступы в ячейках для компактности
             
@@ -844,26 +844,14 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 tc_pr_qr.remove(old_tc_mar_qr)
             tc_pr_qr.append(tc_mar_qr)
             para_qr = cell_qr.paragraphs[0]
-            # Выравниваем по правому краю ячейки
-            para_qr.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            # Выравниваем по левому краю ячейки
+            para_qr.alignment = WD_ALIGN_PARAGRAPH.LEFT
             # Убираем отступы параграфа
             para_qr_format = para_qr.paragraph_format
             para_qr_format.space_before = Pt(0)
             para_qr_format.space_after = Pt(0)
-            para_qr_format.left_indent = Pt(0)
+            para_qr_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю
             para_qr_format.right_indent = Pt(0)
-            # Устанавливаем отрицательный right_indent через XML для сдвига вправо (20px ≈ 300 twips)
-            from docx.oxml.ns import qn
-            from docx.oxml import OxmlElement
-            p_pr_qr = para_qr._element.get_or_add_pPr()
-            # Удаляем старый ind если есть
-            old_ind_qr = p_pr_qr.find(qn('w:ind'))
-            if old_ind_qr is not None:
-                p_pr_qr.remove(old_ind_qr)
-            # Создаем новый ind с отрицательным right_indent
-            ind_qr = OxmlElement('w:ind')
-            ind_qr.set(qn('w:right'), '-360')  # Отрицательный отступ ~24px для сдвига правее (увеличен для большего сдвига)
-            p_pr_qr.append(ind_qr)
             run_qr = para_qr.add_run()
             # Размер QR-кода - оптимизирован для ячейки шириной 5.0 см
             # 1.1 дюйма = ~2.79 см, что помещается в ячейку 5.0 см с отступами и сдвигом
@@ -906,7 +894,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     inner_table.columns[0].width = Cm(2.0)  # Увеличена ширина для PIN-кода (чтобы точно не переносился)
                     # Увеличиваем ширину для QR-кода, чтобы он не обрезался (1.1 дюйма = ~2.79 см, нужно минимум 5.0 см с отступами и сдвигом)
                     inner_table.columns[1].width = Cm(5.0)  # Увеличена ширина для QR-кода (чтобы не обрезался при сдвиге вправо)
-                    print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(2.0)}, QR={Cm(5.0)}, выравнивание содержимого: RIGHT")
+                    print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(2.0)}, QR={Cm(5.0)}, выравнивание: PIN=RIGHT, QR=LEFT")
                     
                     # Убираем отступы в ячейках
                     from docx.oxml.ns import qn
@@ -1013,26 +1001,14 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                         tc_pr_qr.remove(old_tc_mar_qr)
                     tc_pr_qr.append(tc_mar_qr)
                     para_qr = inner_cell_qr.paragraphs[0]
-                    # Выравниваем по правому краю ячейки
-                    para_qr.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                    # Выравниваем по левому краю ячейки
+                    para_qr.alignment = WD_ALIGN_PARAGRAPH.LEFT
                     # Убираем отступы параграфа
                     para_qr_format = para_qr.paragraph_format
                     para_qr_format.space_before = Pt(0)
                     para_qr_format.space_after = Pt(0)
-                    para_qr_format.left_indent = Pt(0)
+                    para_qr_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю
                     para_qr_format.right_indent = Pt(0)
-                    # Устанавливаем отрицательный right_indent через XML для сдвига вправо (20px ≈ 300 twips)
-                    from docx.oxml.ns import qn
-                    from docx.oxml import OxmlElement
-                    p_pr_qr_inner = para_qr._element.get_or_add_pPr()
-                    # Удаляем старый ind если есть
-                    old_ind_qr_inner = p_pr_qr_inner.find(qn('w:ind'))
-                    if old_ind_qr_inner is not None:
-                        p_pr_qr_inner.remove(old_ind_qr_inner)
-                    # Создаем новый ind с отрицательным right_indent
-                    ind_qr_inner = OxmlElement('w:ind')
-                    ind_qr_inner.set(qn('w:right'), '-360')  # Отрицательный отступ ~24px для сдвига правее (увеличен для большего сдвига)
-                    p_pr_qr_inner.append(ind_qr_inner)
                     run_qr = para_qr.add_run()
                     # Размер QR-кода - оптимизирован для ячейки шириной 5.0 см
                     # 1.1 дюйма = ~2.79 см, что помещается в ячейку 5.0 см с отступами и сдвигом
