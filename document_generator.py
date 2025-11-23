@@ -744,7 +744,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             right_margin.set(qn('w:w'), '0')  # Нулевой отступ
             right_margin.set(qn('w:type'), 'dxa')
             tc_mar.append(right_margin)
-            print(f"[QR_PIN_LAYOUT] Отступы ячейки PIN установлены: все нулевые, используем left_indent для сдвига")
+            print(f"[QR_PIN_LAYOUT] Отступы ячейки PIN установлены: все нулевые, используем отрицательный right_indent через XML для сдвига правее")
             # Удаляем старый tcMar если есть
             old_tc_mar = tc_pr.find(qn('w:tcMar'))
             if old_tc_mar is not None:
