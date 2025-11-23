@@ -54,6 +54,9 @@ Thumbs.db
 *.tmp
 temp/
 
+# Word temporary files
+
+
 .env
 
 # Local Netlify folder
