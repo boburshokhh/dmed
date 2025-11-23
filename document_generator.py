@@ -714,7 +714,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
             table.columns[0].width = Cm(2.0)  # Увеличена ширина для PIN-кода (чтобы точно не переносился)
             # Увеличиваем ширину для QR-кода, чтобы он не обрезался (1.2 дюйма = ~3.05 см, нужно минимум 3.5 см с отступами)
             table.columns[1].width = Cm(3.8)  # Увеличена ширина для QR-кода (чтобы не обрезался)
-            print(f"[QR_PIN_LAYOUT] Ширина колонок: PIN={Cm(2.0)}, QR={Cm(3.8)}")
+            print(f"[QR_PIN_LAYOUT] Ширина колонок: PIN={Cm(2.0)}, QR={Cm(3.8)}, выравнивание содержимого: RIGHT")
             
             # Убираем отступы в ячейках для компактности
             from docx.oxml.ns import qn
@@ -751,13 +751,13 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 tc_pr.remove(old_tc_mar)
             tc_pr.append(tc_mar)
             para_pin = cell_pin.paragraphs[0]
-            para_pin.alignment = WD_ALIGN_PARAGRAPH.LEFT  # Выравниваем по левому краю ячейки
+            para_pin.alignment = WD_ALIGN_PARAGRAPH.RIGHT  # Выравниваем по правому краю ячейки
             # Убираем отступы параграфа
             para_pin_format = para_pin.paragraph_format
             para_pin_format.space_before = Pt(0)
             para_pin_format.space_after = Pt(0)
-            para_pin_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю
-            para_pin_format.right_indent = Pt(0)
+            para_pin_format.left_indent = Pt(0)
+            para_pin_format.right_indent = Pt(0)  # Нет отступа справа - прижимаем к правому краю
             # Предотвращаем перенос текста на уровне параграфа
             para_pin_format.widow_control = False
             para_pin_format.keep_together = True
@@ -813,14 +813,14 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                 tc_pr_qr.remove(old_tc_mar_qr)
             tc_pr_qr.append(tc_mar_qr)
             para_qr = cell_qr.paragraphs[0]
-            # Выравниваем по левому краю ячейки
-            para_qr.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            # Выравниваем по правому краю ячейки
+            para_qr.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             # Убираем отступы параграфа
             para_qr_format = para_qr.paragraph_format
             para_qr_format.space_before = Pt(0)
             para_qr_format.space_after = Pt(0)
-            para_qr_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю ячейки
-            para_qr_format.right_indent = Pt(0)
+            para_qr_format.left_indent = Pt(0)
+            para_qr_format.right_indent = Pt(0)  # Нет отступа справа - прижимаем к правому краю ячейки
             run_qr = para_qr.add_run()
             # Размер QR-кода - оптимизирован для ячейки шириной 3.8 см
             # 1.1 дюйма = ~2.79 см, что помещается в ячейку 3.8 см с отступами
@@ -863,7 +863,7 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                     inner_table.columns[0].width = Cm(2.0)  # Увеличена ширина для PIN-кода (чтобы точно не переносился)
                     # Увеличиваем ширину для QR-кода, чтобы он не обрезался (1.2 дюйма = ~3.05 см, нужно минимум 3.5 см с отступами)
                     inner_table.columns[1].width = Cm(3.8)  # Увеличена ширина для QR-кода (чтобы не обрезался)
-                    print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(2.0)}, QR={Cm(3.8)}, выравнивание: LEFT")
+                    print(f"[QR_PIN_LAYOUT] Вложенная таблица создана: PIN={Cm(2.0)}, QR={Cm(3.8)}, выравнивание содержимого: RIGHT")
                     
                     # Убираем отступы в ячейках
                     from docx.oxml.ns import qn
@@ -898,13 +898,13 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                         tc_pr_pin.remove(old_tc_mar_pin)
                     tc_pr_pin.append(tc_mar_pin)
                     para_pin = inner_cell_pin.paragraphs[0]
-                    para_pin.alignment = WD_ALIGN_PARAGRAPH.LEFT  # Выравниваем по левому краю ячейки
+                    para_pin.alignment = WD_ALIGN_PARAGRAPH.RIGHT  # Выравниваем по правому краю ячейки
                     # Убираем отступы параграфа
                     para_pin_format = para_pin.paragraph_format
                     para_pin_format.space_before = Pt(0)
                     para_pin_format.space_after = Pt(0)
-                    para_pin_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю
-                    para_pin_format.right_indent = Pt(0)
+                    para_pin_format.left_indent = Pt(0)
+                    para_pin_format.right_indent = Pt(0)  # Нет отступа справа - прижимаем к правому краю
                     # Предотвращаем перенос текста на уровне параграфа
                     para_pin_format.widow_control = False
                     para_pin_format.keep_together = True
@@ -964,14 +964,14 @@ def add_qr_code_to_docx(doc, pin_code, app=None, document_uuid=None):
                         tc_pr_qr.remove(old_tc_mar_qr)
                     tc_pr_qr.append(tc_mar_qr)
                     para_qr = inner_cell_qr.paragraphs[0]
-                    # Выравниваем по левому краю ячейки
-                    para_qr.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                    # Выравниваем по правому краю ячейки
+                    para_qr.alignment = WD_ALIGN_PARAGRAPH.RIGHT
                     # Убираем отступы параграфа
                     para_qr_format = para_qr.paragraph_format
                     para_qr_format.space_before = Pt(0)
                     para_qr_format.space_after = Pt(0)
-                    para_qr_format.left_indent = Pt(0)  # Нет отступа слева - прижимаем к левому краю ячейки
-                    para_qr_format.right_indent = Pt(0)
+                    para_qr_format.left_indent = Pt(0)
+                    para_qr_format.right_indent = Pt(0)  # Нет отступа справа - прижимаем к правому краю ячейки
                     run_qr = para_qr.add_run()
                     # Размер QR-кода - оптимизирован для ячейки шириной 3.8 см
                     # 1.1 дюйма = ~2.79 см, что помещается в ячейку 3.8 см с отступами
