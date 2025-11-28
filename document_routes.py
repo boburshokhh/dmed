@@ -23,12 +23,14 @@ def list_documents():
     try:
         from database import db_query
         
-        # Получаем роль текущего пользователя
+        # Получаем роль и ID текущего пользователя
         current_user = request.current_user
         user_role = current_user.get('role') if current_user else None
+        current_user_id = current_user.get('user_id') if current_user else None
         
         # Получаем документы с информацией о создателе (JOIN с таблицей users)
-        # Если пользователь не super_admin, скрываем документы созданные пользователем с ID=1
+        # - super_admin видит все документы
+        # - Все остальные админы видят только свои документы (created_by = их user_id)
         if user_role == 'super_admin':
             # Супер-админ видит все документы
             query = """
@@ -38,16 +40,20 @@ def list_documents():
                 ORDER BY d.created_at DESC
             """
         else:
-            # Обычный админ не видит документы созданные пользователем с ID=1
+            # Обычный админ видит только свои документы
             query = """
                 SELECT d.*, u.username as creator_username, u.email as creator_email
                 FROM documents d
                 LEFT JOIN users u ON d.created_by = u.id
-                WHERE d.created_by IS NULL OR d.created_by != 1
+                WHERE d.created_by = %s
                 ORDER BY d.created_at DESC
             """
         
-        result = db_query(query, fetch_all=True)
+        if user_role == 'super_admin':
+            result = db_query(query, fetch_all=True)
+        else:
+            result = db_query(query, [current_user_id], fetch_all=True)
+        
         documents = [dict(row) for row in result] if result else []
         # Убираем чувствительные данные
         for doc in documents:

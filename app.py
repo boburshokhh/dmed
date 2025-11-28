@@ -140,7 +140,7 @@ CORS(app,
 
 # Регистрируем Blueprints для API (импортируем после создания app)
 try:
-    from auth_routes import auth_bp, admin_bp
+    from auth_routes import auth_bp, admin_bp, require_auth
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     print("✓ Blueprints auth_bp и admin_bp успешно зарегистрированы")
@@ -1074,9 +1074,15 @@ def verify_pin_by_uuid(uuid):
 
 
 @app.route('/api/files', methods=['GET'])
+@require_auth
 def list_files():
     """Получение списка всех файлов в хранилище с информацией из БД"""
     try:
+        # Получаем информацию о текущем пользователе
+        current_user = request.current_user
+        current_user_id = current_user.get('user_id') if current_user else None
+        user_role = current_user.get('role') if current_user else None
+        
         prefix = request.args.get('prefix', '')
         file_type = request.args.get('type', '')
         
@@ -1099,11 +1105,23 @@ def list_files():
             except:
                 pass
             
+            # Получаем created_by из документа
+            created_by = document.get('created_by') if document else None
+            
+            # Фильтрация по пользователю:
+            # - super_admin видит все файлы
+            # - Все остальные админы видят только свои файлы (created_by = их user_id)
+            if user_role != 'super_admin':
+                # Обычный админ видит только свои файлы
+                if created_by != current_user_id:
+                    continue
+            
             enriched_file = {
                 **file_info,
                 'patient_name': document.get('patient_name') if document else None,
                 'doc_number': document.get('doc_number') if document else None,
                 'issue_date': document.get('issue_date').isoformat() if document and document.get('issue_date') else None,
+                'created_by': created_by,  # Добавляем информацию о создателе
             }
             
             enriched_files.append(enriched_file)

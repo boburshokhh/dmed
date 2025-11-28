@@ -14,9 +14,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { FileText, Download, Trash2, Filter, RotateCcw, FolderOpen, ChevronDown } from 'lucide-react'
+import { FileText, Download, Trash2, Filter, RotateCcw, FolderOpen, ChevronDown, ArrowUp, ArrowDown, Calendar, Search, FileType } from 'lucide-react'
 import api from '@/lib/api'
-import { isSuperAdmin } from '@/lib/auth'
+import { isSuperAdmin, getAuth } from '@/lib/auth'
 import { DatePicker } from '@/components/ui/date-picker'
 
 export default function FilesPage() {
@@ -26,6 +26,7 @@ export default function FilesPage() {
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
+  const [currentUser, setCurrentUser] = useState(null)
   const [stats, setStats] = useState({
     total: 0,
     pdf: 0,
@@ -33,6 +34,7 @@ export default function FilesPage() {
     totalSize: 0
   })
   const [filtersOpen, setFiltersOpen] = useState(false) // State for filters visibility
+  const [sortOrder, setSortOrder] = useState('desc') // 'asc' или 'desc' - сортировка по времени создания
   const [filters, setFilters] = useState({
     type: '',
     search: '',
@@ -41,12 +43,16 @@ export default function FilesPage() {
   })
 
   useEffect(() => {
+    const auth = getAuth()
+    if (auth && auth.userData) {
+      setCurrentUser(auth.userData)
+    }
     loadFiles()
   }, [])
 
   useEffect(() => {
     applyFilters()
-  }, [files, filters])
+  }, [files, filters, sortOrder])
 
   useEffect(() => {
     paginateFiles()
@@ -56,8 +62,19 @@ export default function FilesPage() {
     try {
       const response = await api.get('/files')
       if (response.data.success) {
-        setFiles(response.data.files || [])
-        updateStats(response.data.files || [])
+        let filesList = response.data.files || []
+        
+        // Дополнительная фильтрация на фронтенде для безопасности
+        const auth = getAuth()
+        const currentUserId = auth?.userData?.id
+        
+        if (!isSuperAdmin()) {
+          // Обычный админ видит только свои файлы
+          filesList = filesList.filter(file => file.created_by === currentUserId)
+        }
+        
+        setFiles(filesList)
+        updateStats(filesList)
       }
     } catch (error) {
       console.error('Ошибка загрузки файлов:', error)
@@ -84,22 +101,34 @@ export default function FilesPage() {
       )
     }
 
-    // Фильтр по дате
+    // Фильтр по дате создания
     if (filters.dateFrom) {
       filtered = filtered.filter(f => {
-        const fileDate = new Date(f.last_modified)
+        const fileDate = new Date(f.last_modified || f.created_at || f.date_created)
         return fileDate >= new Date(filters.dateFrom)
       })
     }
 
     if (filters.dateTo) {
       filtered = filtered.filter(f => {
-        const fileDate = new Date(f.last_modified)
+        const fileDate = new Date(f.last_modified || f.created_at || f.date_created)
         const toDate = new Date(filters.dateTo)
         toDate.setHours(23, 59, 59)
         return fileDate <= toDate
       })
     }
+
+    // Сортировка по времени создания
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.last_modified || a.created_at || a.date_created || 0)
+      const dateB = new Date(b.last_modified || b.created_at || b.date_created || 0)
+      
+      if (sortOrder === 'desc') {
+        return dateB - dateA // Новые сначала
+      } else {
+        return dateA - dateB // Старые сначала
+      }
+    })
 
     setFilteredFiles(filtered)
     updateStats(filtered)
@@ -168,6 +197,12 @@ export default function FilesPage() {
       dateFrom: '',
       dateTo: ''
     })
+    setSortOrder('desc')
+    setCurrentPage(1)
+  }
+
+  const toggleSortOrder = () => {
+    setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')
     setCurrentPage(1)
   }
 
@@ -191,13 +226,13 @@ export default function FilesPage() {
           </p>
         </div>
 
-        {/* Фильтры */}
-        <Card>
-          <CardHeader className="py-3">
+        {/* Фильтры и сортировка */}
+        <Card className="border-2 border-primary/10 shadow-lg">
+          <CardHeader className="py-4 bg-gradient-to-r from-primary/5 to-primary/10">
             <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Filter className="h-4 w-4" />
-                Фильтры
+              <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                <Filter className="h-5 w-5 text-primary" />
+                Фильтры и сортировка
               </CardTitle>
               <Button
                 variant="ghost"
@@ -209,15 +244,43 @@ export default function FilesPage() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
+            {/* Сортировка по времени создания */}
+            <div className="mb-6 pb-4 border-b">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-primary" />
+                  <Label className="text-base font-medium">Сортировка по времени создания</Label>
+                </div>
+                <Button
+                  onClick={toggleSortOrder}
+                  variant="outline"
+                  className="flex items-center gap-2 min-w-[180px] justify-between"
+                >
+                  <span className="text-sm">
+                    {sortOrder === 'desc' ? 'Новые сначала' : 'Старые сначала'}
+                  </span>
+                  {sortOrder === 'desc' ? (
+                    <ArrowDown className="h-4 w-4 text-primary" />
+                  ) : (
+                    <ArrowUp className="h-4 w-4 text-primary" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Фильтры */}
             <div className={`grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-4 transition-all duration-300 ${
               filtersOpen ? 'opacity-100 blur-0 max-h-[500px]' : 'opacity-40 blur-[0.5px] max-h-0 overflow-hidden md:opacity-100 md:blur-0 md:max-h-[500px]'
             }`}>
               <div className="space-y-2">
-                <Label htmlFor="type">Тип файла</Label>
+                <Label htmlFor="type" className="flex items-center gap-2 text-sm font-medium">
+                  <FileType className="h-4 w-4 text-muted-foreground" />
+                  Тип файла
+                </Label>
                 <select
                   id="type"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   value={filters.type}
                   onChange={(e) => setFilters({ ...filters, type: e.target.value })}
                 >
@@ -227,16 +290,23 @@ export default function FilesPage() {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="search">Поиск</Label>
+                <Label htmlFor="search" className="flex items-center gap-2 text-sm font-medium">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  Поиск
+                </Label>
                 <Input
                   id="search"
                   placeholder="Имя файла, UUID, пациент..."
                   value={filters.search}
                   onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dateFrom">Дата от</Label>
+                <Label htmlFor="dateFrom" className="flex items-center gap-2 text-sm font-medium">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  Дата от
+                </Label>
                 <DatePicker
                   value={filters.dateFrom}
                   onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
@@ -244,7 +314,10 @@ export default function FilesPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dateTo">Дата до</Label>
+                <Label htmlFor="dateTo" className="flex items-center gap-2 text-sm font-medium">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  Дата до
+                </Label>
                 <DatePicker
                   value={filters.dateTo}
                   onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
@@ -252,12 +325,16 @@ export default function FilesPage() {
                 />
               </div>
             </div>
-            <div className={`mt-4 flex gap-2 transition-all duration-300 ${
+            <div className={`mt-6 flex gap-2 transition-all duration-300 ${
               filtersOpen ? 'opacity-100 blur-0' : 'opacity-40 blur-[0.5px] md:opacity-100 md:blur-0'
             }`}>
-              <Button onClick={resetFilters} variant="outline">
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Сбросить
+              <Button 
+                onClick={resetFilters} 
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Сбросить все фильтры
               </Button>
             </div>
           </CardContent>
@@ -315,7 +392,22 @@ export default function FilesPage() {
                     <TableHead>Имя файла / Пациент</TableHead>
                     <TableHead>Тип</TableHead>
                     <TableHead>Размер</TableHead>
-                    <TableHead>Дата создания</TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-2">
+                        <span>Дата создания</span>
+                        <button
+                          onClick={toggleSortOrder}
+                          className="p-1 hover:bg-muted rounded transition-colors"
+                          title={sortOrder === 'desc' ? 'Новые сначала' : 'Старые сначала'}
+                        >
+                          {sortOrder === 'desc' ? (
+                            <ArrowDown className="h-3 w-3 text-primary" />
+                          ) : (
+                            <ArrowUp className="h-3 w-3 text-primary" />
+                          )}
+                        </button>
+                      </div>
+                    </TableHead>
                     <TableHead>Номер документа</TableHead>
                     <TableHead className="text-right sticky right-0 bg-background z-10">Действия</TableHead>
                   </TableRow>
@@ -349,7 +441,10 @@ export default function FilesPage() {
                             {formatBytes(file.size)}
                           </TableCell>
                           <TableCell className="text-muted-foreground">
-                            {formatDate(file.last_modified)}
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-3 w-3 text-muted-foreground/60" />
+                              <span>{formatDate(file.last_modified || file.created_at || file.date_created)}</span>
+                            </div>
                           </TableCell>
                           <TableCell className="text-muted-foreground font-mono">
                             {file.doc_number || '-'}

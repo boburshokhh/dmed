@@ -18,7 +18,7 @@ import {
 import { FileText, Download, Loader2, Search, Plus, Filter, RotateCcw, ChevronDown } from 'lucide-react'
 import api from '@/lib/api'
 import { DatePicker } from '@/components/ui/date-picker'
-import { getAuth } from '@/lib/auth'
+import { getAuth, isSuperAdmin } from '@/lib/auth'
 
 export default function DocumentsPage() {
   const router = useRouter()
@@ -56,7 +56,18 @@ export default function DocumentsPage() {
   const fetchDocuments = async () => {
     try {
       const response = await api.get('/documents')
-      setDocuments(response.data)
+      let documentsList = response.data || []
+      
+      // Дополнительная фильтрация на фронтенде для безопасности
+      const auth = getAuth()
+      const currentUserId = auth?.userData?.id
+      
+      if (!isSuperAdmin()) {
+        // Обычный админ видит только свои документы
+        documentsList = documentsList.filter(doc => doc.created_by === currentUserId)
+      }
+      
+      setDocuments(documentsList)
     } catch (error) {
       console.error('Ошибка загрузки документов:', error)
     } finally {
